@@ -17,8 +17,8 @@ import androidx.core.view.WindowInsetsCompat
  * Atividade principal do GCP-Calc no Android.
  * - Ignora a escala de fonte do sistema (textZoom 100): a interface já é responsiva e
  *   o tamanho do texto é ajustado dentro do app (Configurações › Geral › Editor).
- * - No primeiro uso pede, de uma vez, as permissões de microfone (anotações por voz) e de
- *   notificações (lembretes de contas); a escolha fica salva pelo próprio Android.
+ * - No primeiro uso pede, de uma vez, as permissões de microfone (anotações por voz), câmera
+ *   (fotos de comprovantes) e notificações (lembretes de contas); o Android guarda a escolha.
  * - Desenha de ponta a ponta e informa ao CSS as áreas da barra de status, da barra de
  *   gestos, do entalhe e do teclado (--safe-t/-b/-l/-r e --kb), em pixels CSS.
  */
@@ -76,7 +76,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun wanted(): List<String> {
-    val list = mutableListOf(Manifest.permission.RECORD_AUDIO)
+    val list = mutableListOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     if (Build.VERSION.SDK_INT >= 33) list.add(Manifest.permission.POST_NOTIFICATIONS)
     return list
   }
@@ -85,6 +85,7 @@ class MainActivity : TauriActivity() {
 
   private fun permFor(name: String): String? = when (name) {
     "mic" -> Manifest.permission.RECORD_AUDIO
+    "camera" -> Manifest.permission.CAMERA
     "notify" -> if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null
     else -> null
   }

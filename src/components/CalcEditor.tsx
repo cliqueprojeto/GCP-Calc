@@ -4,9 +4,10 @@
  */
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { canonicalLine, isMoneyLine, regroupAtCaret } from '../lib/autoformat';
-import { Bell, BellRing, Copy, RefreshCw } from 'lucide-react';
+import { Bell, BellRing, Copy, Paperclip, RefreshCw } from 'lucide-react';
 import { AI_COMMAND, FUNCS, type LineResult } from '../engine/evaluate';
 import { fold } from '../engine/units';
+import { searchEmoji } from '../lib/emojiIndex';
 import { formatValue, plainNumber, type FormatOptions, type Value } from '../engine/value';
 import { copyText } from '../lib/platform';
 import { useRates } from '../lib/rates';
@@ -66,16 +67,21 @@ export interface CalcEditorProps {
   onReminder?(lineIndex: number): void;
   /** linhas que já têm lembrete */
   hasReminder?(lineIndex: number): boolean;
+  /** comprovantes por linha */
+  attachCount?(lineIndex: number): number;
+  onAttach?(lineIndex: number): void;
+  onShowAttach?(lineIndex: number): void;
   /** nomes conhecidos na nota (variáveis e seções) para o autocompletar */
   known?: Suggestion[];
 }
 
 export interface Suggestion {
-  kind: 'var' | 'section' | 'func' | 'kw';
+  kind: 'var' | 'section' | 'func' | 'kw' | 'emoji' | 'cmd';
   /** texto inserido */
   insert: string;
   value?: Value;
   tone?: 'income' | 'expense';
+  detail?: string;
 }
 
 interface AcState {
@@ -85,6 +91,8 @@ interface AcState {
   end: number;
   top: number;
   left: number;
+  /** menu "/" (grade de emojis) */
+  grid?: boolean;
 }
 
 const KEYWORDS = ['total', 'média', 'subtotal', 'anterior', 'em', 'de', 'hoje', 'average', 'previous', 'today', 'promedio', 'hoy'];
@@ -108,7 +116,7 @@ function measure(ta: HTMLTextAreaElement, s: string): number {
   return c.measureText(s).width;
 }
 
-export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, onReminder, hasReminder, known = [] }: CalcEditorProps) {
+export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, onReminder, hasReminder, attachCount, onAttach, onShowAttach, known = [] }: CalcEditorProps) {
   const t = useT();
   const taRef = useRef<HTMLTextAreaElement>(null);
   const srcRef = useRef<HTMLDivElement>(null);
@@ -137,6 +145,25 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
   /** abre/atualiza as sugestões para a palavra no cursor */
   const suggest = (value: string, caret: number) => {
     const ta = taRef.current;
+    // "/" no começo da linha ou depois de espaço: emojis, símbolos e o comando /ia
+    const slash = ta ? value.slice(0, caret).match(/(^|[\s])\/([\p{L}]*)$/u) : null;
+    // depois de número ou ")" o "/" é divisão
+    const beforeSlash = slash ? value.slice(value.lastIndexOf('\n', caret - 1) + 1, caret - slash[2].length - 1).trimEnd() : '';
+    if (slash && ta && !/[\p{L}\p{N}_]/u.test(value[caret] ?? '') && !/[\d)%]$/.test(beforeSlash)) {
+      const q = slash[2];
+      const start = caret - q.length - 1;
+      const items: Suggestion[] = [];
+      if ('ia'.startsWith(q.toLowerCase()) || 'ai'.startsWith(q.toLowerCase())) items.push({ kind: 'cmd', insert: '/ia ' });
+      for (const e of searchEmoji(q, 30)) items.push({ kind: 'emoji', insert: e.e, detail: e.k.split(' ').slice(0, 2).join(' ') });
+      if (!items.length) return setAc(null);
+      const lineIdx = value.slice(0, caret).split('\n').length - 1;
+      const row = srcRef.current?.children[lineIdx] as HTMLElement | undefined;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const wrapW = wrapRef.current?.clientWidth ?? 300;
+      const left = Math.max(0, Math.min(wrapW - 270, ta.offsetLeft + measure(ta, value.slice(lineStart, start))));
+      setAc({ items, sel: 0, start, end: caret, top: (row?.offsetTop ?? 0) + (row?.offsetHeight ?? 24), left, grid: true });
+      return;
+    }
     const w = autocomplete && ta ? wordAt(value, caret) : null;
     if (!w || !ta || (!w.word.startsWith('#') && w.word.length < 2)) return setAc(null);
     const isTag = w.word.startsWith('#');
@@ -166,7 +193,7 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
     if (!ac) return;
     const ta = taRef.current;
     const value = ta?.value ?? text;
-    const ins = item.kind === 'func' ? item.insert + '(' : item.insert;
+    const ins = item.kind === 'func' ? item.insert + '(' : item.kind === 'emoji' ? item.insert + ' ' : item.insert;
     const next = value.slice(0, ac.start) + ins + value.slice(ac.end);
     setCaret(ac.start + ins.length);
     onChange(next);
@@ -209,9 +236,10 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget;
     if (ac) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || (ac.grid && (e.key === 'ArrowLeft' || e.key === 'ArrowRight'))) {
         e.preventDefault();
-        const d = e.key === 'ArrowDown' ? 1 : -1;
+        const cols = ac.grid ? 8 : 1;
+        const d = e.key === 'ArrowDown' ? cols : e.key === 'ArrowUp' ? -cols : e.key === 'ArrowRight' ? 1 : -1;
         setAc({ ...ac, sel: (ac.sel + d + ac.items.length) % ac.items.length });
         return;
       }
@@ -356,8 +384,31 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
           }}
         />
         {ac && (
-          <div className="ac-pop" style={{ top: ac.top, left: ac.left }} role="listbox">
-            {ac.items.map((it, i) => (
+          <div className={`ac-pop ${ac.grid ? 'slash' : ''}`} style={{ top: ac.top, left: ac.left }} role="listbox">
+            {ac.grid && (
+              <div className="ac-slash-head">
+                {t('slash.title')}
+              </div>
+            )}
+            {ac.grid && ac.items.some((x) => x.kind === 'cmd') && (
+              <button className={`ac-item ${ac.items[ac.sel]?.kind === 'cmd' ? 'on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(ac.items.find((x) => x.kind === 'cmd')!)}>
+                <span className="ac-kind">IA</span>
+                <span className="ac-label">/ia</span>
+                <span className="ac-detail">{t('slash.ai')}</span>
+              </button>
+            )}
+            {ac.grid && (
+              <div className="ac-emoji-grid">
+                {ac.items.map((it, i) =>
+                  it.kind === 'emoji' ? (
+                    <button key={it.insert + i} className={`ac-emoji ${i === ac.sel ? 'on' : ''}`} title={it.detail} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(it)}>
+                      {it.insert}
+                    </button>
+                  ) : null,
+                )}
+              </div>
+            )}
+            {!ac.grid && ac.items.map((it, i) => (
               <button
                 key={it.kind + it.insert}
                 className={`ac-item ${i === ac.sel ? 'on' : ''}`}
@@ -371,7 +422,7 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
                 {it.value && <span className="ac-detail">{formatValue(it.value, fmt)}</span>}
               </button>
             ))}
-            <div className="ac-hint">{t('ac.hint')}</div>
+            <div className="ac-hint">{ac.grid ? t('slash.hint') : t('ac.hint')}</div>
           </div>
         )}
       </div>
@@ -383,6 +434,21 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
             const s = formatValue(r.value, fmt);
             return (
               <div key={i} className={`res ${r.assigned ? 'assigned' : ''} ${r.aggregate ? 'aggregate' : ''} ${r.tone ? 'tone-' + r.tone : ''} ${i === activeLine ? 'active' : ''}`}>
+                {(() => {
+                  const n = attachCount?.(i) ?? 0;
+                  if (n > 0)
+                    return (
+                      <button className="res-clip on" title={t('att.view')} onClick={() => onShowAttach?.(i)}>
+                        <Paperclip size={12} />
+                        {n > 1 && <small>{n}</small>}
+                      </button>
+                    );
+                  return onAttach ? (
+                    <button className={`res-clip ${i === activeLine ? 'show' : ''}`} title={t('att.add')} onMouseDown={(e) => e.preventDefault()} onClick={() => onAttach(i)}>
+                      <Paperclip size={12} />
+                    </button>
+                  ) : null;
+                })()}
                 {r.due && onReminder && (
                   <button className={`res-bell ${hasReminder?.(i) ? 'on' : ''}`} title={hasReminder?.(i) ? t('rem.has') : t('rem.createFromLine')} onClick={() => onReminder(i)}>
                     {hasReminder?.(i) ? <BellRing size={13} /> : <Bell size={13} />}

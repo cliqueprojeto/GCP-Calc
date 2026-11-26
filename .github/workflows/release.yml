@@ -198,10 +198,18 @@ jobs:
           echo "MAIN=$MAIN" >> "$GITHUB_ENV"
           # Permissões: microfone (anotações por voz) e notificações (lembretes de contas)
           MANIFEST=src-tauri/gen/android/app/src/main/AndroidManifest.xml
-          for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS POST_NOTIFICATIONS; do
+          for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS POST_NOTIFICATIONS CAMERA; do
             grep -q "android.permission.$perm" "$MANIFEST" || sed -i "s#<application#<uses-permission android:name=\"android.permission.$perm\" />\n    <application#" "$MANIFEST"
           done
-          grep -n "uses-permission" "$MANIFEST"
+          # Câmera opcional (o app também roda em aparelhos sem câmera)
+          grep -q 'android.hardware.camera' "$MANIFEST" || sed -i 's#<application#<uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' "$MANIFEST"
+          # FileProvider: a câmera devolve a foto ao app por ele (comprovantes)
+          if ! grep -q "fileprovider" "$MANIFEST"; then
+            mkdir -p src-tauri/gen/android/app/src/main/res/xml
+            printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' '<paths xmlns:android="http://schemas.android.com/apk/res/android">' '  <external-files-path name="my_images" path="Pictures" />' '  <cache-path name="cache" path="." />' '</paths>' > src-tauri/gen/android/app/src/main/res/xml/file_paths.xml
+            sed -i 's#</application>#    <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" /></provider>\n    </application>#' "$MANIFEST"
+          fi
+          grep -n "uses-permission\|fileprovider" "$MANIFEST"
       - name: Compilar APK (arm64, armv7 e x86_64)
         run: |
           # novas tentativas em falhas de rede do Gradle/Maven (ex.: 429 Too Many Requests)

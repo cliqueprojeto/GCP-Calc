@@ -1,6 +1,6 @@
 /** Páginas auxiliares: início, modelos, lixeira, busca rápida e teclado numérico. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Calculator, Clock, CornerDownLeft, Delete, LayoutTemplate, Plus, RotateCcw, Search, Settings, Trash2, ListOrdered, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, Mic, ArrowRight, Calculator, Clock, CornerDownLeft, Delete, LayoutTemplate, Plus, RotateCcw, Search, Settings, Trash2, ListOrdered, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData, visibleNotes } from '../store/data';
 import { useUi } from '../store/ui';
 import { NoteIcon } from '../lib/icons';
@@ -301,16 +301,27 @@ export function Keypad() {
   const show = view.kind === 'note' && !!focus && (mode === 'on' || (mode === 'auto' && isMobile));
   if (!show) return null;
   const pages = [
-    ['7', '8', '9', '/', '(', ')', '4', '5', '6', '*', '%', '^', '1', '2', '3', '-', '=', '$', '0', dec, ' ', '+'],
-    ['R$', 'US$', '€', 'BTC', ` ${t('keypad.in')} `, ` ${t('keypad.of')} `, 'km', 'kg', 'm²', 'L', 'h', 'min', '°C', 'GB', t('keypad.total'), t('keypad.today'), 'sqrt(', 'pmt(', ';', '//', '#', '\n'],
+    ['7', '8', '9', '/', '(', ')', '4', '5', '6', '*', '%', '^', '1', '2', '3', '-', '=', '$', '0', dec, ' ', '+', '\u0001mic', '\u0001cam'],
+    ['R$', 'US$', '€', 'BTC', ` ${t('keypad.in')} `, ` ${t('keypad.of')} `, 'km', 'kg', 'm²', 'L', 'h', 'min', '°C', 'GB', t('keypad.total'), t('keypad.today'), 'sqrt(', 'pmt(', ';', '//', '#', '\n', '\u0001mic', '\u0001cam'],
   ];
   return (
     <div className="keypad" onMouseDown={(e) => e.preventDefault()}>
       <div className="kp-keys">
         {pages[page].map((k, i) => (
-          <button key={i} className={/[0-9.,]/.test(k) && k.length === 1 ? 'num' : 'op'} onClick={() => (k === '\n' ? keypadAction('enter') : insertAtCaret(k))}>
-            {k === ' ' ? '␣' : k === '\n' ? '⏎' : k.trim() || k}
-          </button>
+          k.startsWith('\u0001') ? (
+            <button
+              key={i}
+              className="op special"
+              title={k === '\u0001mic' ? t('voice.title') : t('att.add')}
+              onClick={() => useUi.getState().set(k === '\u0001mic' ? { voiceRequest: Date.now() } : { attachRequest: Date.now() })}
+            >
+              {k === '\u0001mic' ? <Mic size={17} /> : <Camera size={17} />}
+            </button>
+          ) : (
+            <button key={i} className={/[0-9.,]/.test(k) && k.length === 1 ? 'num' : 'op'} onClick={() => (k === '\n' ? keypadAction('enter') : insertAtCaret(k))}>
+              {k === ' ' ? '␣' : k === '\n' ? '⏎' : k.trim() || k}
+            </button>
+          )
         ))}
       </div>
       <div className="kp-side">

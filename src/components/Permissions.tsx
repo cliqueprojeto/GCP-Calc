@@ -1,6 +1,6 @@
 /** Primeiro uso: pede de uma vez as permissões (microfone e notificações) e guarda a escolha. */
 import { useEffect, useState } from 'react';
-import { Bell, Check, Mic, ShieldCheck, X } from 'lucide-react';
+import { Bell, Camera, Check, Mic, ShieldCheck, X } from 'lucide-react';
 import { Modal } from './ui';
 import { useData } from '../store/data';
 import { micState, notifyState, requestAll, requestMic, requestNotify, type PermState } from '../lib/permissions';
@@ -38,6 +38,13 @@ export function PermissionsFirstRun() {
           <div>
             <b>{t('perm.mic')}</b>
             <small>{t('perm.micWhy')}</small>
+          </div>
+        </div>
+        <div className="perm-item">
+          <Camera size={18} />
+          <div>
+            <b>{t('perm.camera')}</b>
+            <small>{t('perm.cameraWhy')}</small>
           </div>
         </div>
         <div className="perm-item">
@@ -97,6 +104,19 @@ export function PermissionsSettings() {
           {t('perm.ask')}
         </button>
       </div>
+      {(window as unknown as { GcpNative?: { permission?(n: string): string } }).GcpNative?.permission && (
+        <div className="perm-row">
+          <Camera size={17} />
+          <div>
+            <b>{t('perm.camera')}</b>
+            <small>{t('perm.cameraWhy')}</small>
+          </div>
+          <StateTag s={(window as unknown as { GcpNative: { permission(n: string): string } }).GcpNative.permission('camera') === 'granted' ? 'granted' : 'prompt'} />
+          <button className="btn small" onClick={() => (window as unknown as { GcpNative: { requestPermissions(): void } }).GcpNative.requestPermissions()}>
+            {t('perm.ask')}
+          </button>
+        </div>
+      )}
       <div className="perm-row">
         <Bell size={17} />
         <div>

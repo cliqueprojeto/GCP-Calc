@@ -17,6 +17,9 @@ interface UiState {
   search: string;
   /** bloco de cálculo focado (para o teclado e o assistente) */
   focusBlock?: string;
+  /** pedidos vindos do teclado de operadores: gravar voz / anexar comprovante */
+  voiceRequest?: number;
+  attachRequest?: number;
   /** assistente aberto na nota (id do bloco depois do qual ele aparece) */
   assistant?: { noteId: string; afterBlock?: string; goal?: string; turns?: Turn[] };
   toasts: Toast[];

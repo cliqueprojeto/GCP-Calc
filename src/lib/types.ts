@@ -5,7 +5,7 @@ export type Lang = 'pt' | 'en' | 'es';
 export type ChartKind = 'bar' | 'pie' | 'donut' | 'line' | 'hbar';
 
 export type Block =
-  | { id: string; type: 'calc'; text: string }
+  | { id: string; type: 'calc'; text: string; attachments?: Attachment[] }
   | { id: string; type: 'heading'; text: string; level: 1 | 2 | 3 }
   | { id: string; type: 'image'; src: string; caption?: string; width?: number }
   | { id: string; type: 'chart'; kind: ChartKind; source: string; title?: string }
@@ -20,6 +20,20 @@ export type Block =
   | { id: string; type: 'audio'; src: string; mime: string; ms: number; transcript?: string; created: number };
 
 export type BlockType = Block['type'];
+
+/** Comprovante anexado a uma linha (foto reduzida ou PDF) */
+export interface Attachment {
+  id: string;
+  name: string;
+  mime: string;
+  /** data URL */
+  src: string;
+  w?: number;
+  h?: number;
+  /** linha a que pertence (nome do lançamento, normalizado) */
+  line?: string;
+  created: number;
+}
 
 export interface Note {
   id: string;

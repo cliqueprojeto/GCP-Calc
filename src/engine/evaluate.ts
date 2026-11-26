@@ -213,6 +213,8 @@ interface Scope {
   prev?: Value;
   lines: (Value | undefined)[];
   sections?: Map<string, Section>;
+  /** seção atual: "total" soma a seção inteira, mesmo com linhas em branco no meio */
+  section?: string;
 }
 
 /** Seção nomeada (#Receitas): soma das linhas abaixo do título. */
@@ -369,7 +371,7 @@ function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; se
         break;
       }
       toks.push(tok);
-      seg(text, tok.k === 'unit' ? 'unit' : tok.k === 'cur' ? (tagNames.has(f) ? 'tag' : 'cur') : tok.k === 'var' ? 'var' : tok.k === 'func' || tok.k === 'ufunc' ? 'func' : tok.k === 'op' ? 'op' : tok.k === 'scale' ? 'num' : tok.k === 'date' ? 'date' : 'kw');
+      seg(text, tok.k === 'unit' ? 'unit' : tok.k === 'cur' ? (tagNames.has(f) ? 'tag' : 'cur') : tok.k === 'var' ? 'var' : tok.k === 'section' ? 'section' : tok.k === 'func' || tok.k === 'ufunc' ? 'func' : tok.k === 'op' ? 'op' : tok.k === 'scale' ? 'num' : tok.k === 'date' ? 'date' : 'kw');
     }
     if (!matched) seg(r.s, 'text');
   }
@@ -389,6 +391,8 @@ interface ClassifyEnv {
 function classify(phrase: string, f: string, lower: string, e: ClassifyEnv): Tok | 'skip' | null {
   // variáveis do usuário vêm primeiro (podem ter espaços)
   if (e.scope.vars.has(f)) return { k: 'var', name: f };
+  // nome de seção sem "#": "receitas - despesas"
+  if (e.scope.sections?.has(f) && !e.nextIsParen) return { k: 'section', name: f };
   if (e.n === 1 && e.scope.funcs.has(f) && e.nextIsParen) return { k: 'ufunc', name: f };
   if (e.tagNames.has(f)) return { k: 'cur', code: e.tagNames.get(f)!, prefixOk: true };
   if (e.n === 1 && /^line\d+$|^linha\d+$|^linea\d+$/.test(f)) return { k: 'line', n: parseInt(f.replace(/\D/g, ''), 10) };
@@ -765,7 +769,8 @@ class Parser {
 
   aggregate(name: 'sum' | 'avg' | 'prev' | 'min' | 'max' | 'count', from?: Value[]): Value {
     if (name !== 'prev') this.usedAggregate = true;
-    const g = (from ?? this.scope.group).filter((v) => !v.date);
+    const sec = !from && this.scope.section ? this.scope.sections?.get(this.scope.section) : undefined;
+    const g = (from ?? (sec && sec.values.length >= this.scope.group.length ? sectionValues(sec) : this.scope.group)).filter((v) => !v.date);
     if (name === 'prev') {
       if (!this.scope.prev) throw new CalcError('noprev');
       return { ...this.scope.prev };
@@ -781,6 +786,8 @@ class Parser {
     let count = 0;
     for (const v of g) {
       if ((v.unit?.dim ?? '-') !== dim && v.unit && base.unit) continue;
+      // num total em dinheiro (ou outra unidade), números soltos e percentuais ficam de fora
+      if (dim !== '-' && (!v.unit || v.pct)) continue;
       try {
         acc = add(acc, v.pct ? { n: v.n } : v, 1, this.ctx);
         count++;
@@ -960,9 +967,13 @@ export interface DocResult {
   vars: Map<string, Value>;
 }
 
-const ASSIGN_RE = /^(\s*)([\p{L}_][\p{L}\p{N}_ ]{0,40}?)(\s*=\s*)(?!=)(.+)$/u;
+const ASSIGN_RE = /^(\s*)((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}_][\p{L}\p{N}_ ]{0,40}?)(\s*=\s*)(?!=)(.+)$/u;
 const FUNC_RE = /^(\s*)([\p{L}_][\p{L}\p{N}_]*)\(([^)]*)\)(\s*=\s*)(.+)$/u;
-const LABEL_RE = /^(\s*)([\p{L}][^:+*\/^=()\d]{0,58}?[^\s:]?)(:\s*)(.*)$/u;
+const LABEL_RE = /^(\s*)((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}][^:+*\/^=()\d]{0,58}?[^\s:]?)(:\s*)(.*)$/u;
+
+/** emojis e símbolos decorativos: enfeitam a linha, mas ficam fora dos nomes de variáveis e seções */
+const EMOJI_G = /[\p{Extended_Pictographic}←-⯿☀-➿️‍⃣\p{Emoji_Modifier}]/gu;
+export const stripEmoji = (s: string) => s.replace(EMOJI_G, '').replace(/\s+/g, ' ').trim();
 
 export interface DocState {
   vars: Map<string, Value>;
@@ -980,7 +991,7 @@ export function newDocState(): DocState {
 }
 
 /** "#Receitas", "# Despesas do mês", "## Total:" → nome da seção */
-const SECTION_RE = /^(?:#+\s+([\p{L}_][\p{L}\p{N}_ ]*?)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
+const SECTION_RE = /^(?:#+(?:\s+|(?=[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF]))((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}_][\p{L}\p{N}_ ]*?(?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
 /** "Total #Receitas: R$ 6.000" ou "#Receitas - #Despesas = 5.700": conta à esquerda, valor esperado à direita */
 const EXPECT_RE = /^(\s*)([^=:]*#[\p{L}_][^=:]*?)(\s*[=:]\s*)(.*)$/u;
 /** "Sobra %", "Sobra % = xx %": percentual sobre as receitas */
@@ -1063,7 +1074,8 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
       if (!r.aggregate && !qty) {
         st.group.push(r.value);
         const sec = st.section ? st.sections.get(st.section) : undefined;
-        if (sec && !r.assigned) {
+        // lançamentos com ":" ou com "=" contam na seção (percentuais e datas não)
+        if (sec && !r.value.pct && !r.value.date) {
           sec.values.push(r.value);
           sec.tone = sectionTone(sec.name, sec.values);
         }
@@ -1084,13 +1096,13 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
   const sm = smRaw && (smRaw[1] || !(findCurrency(smRaw[2]) || ctx.tags.some((t) => fold(t.name) === fold(smRaw[2])))) ? [smRaw[0], (smRaw[1] ?? smRaw[2]).trim()] : null;
   if (sm || /^#+(\s|$)/.test(trimmed)) {
     if (sm) {
-      const name = sm[1].trim();
+      const name = stripEmoji(sm[1]);
       const key = fold(name);
       // título repetido continua a mesma seção
       if (!st.sections.has(key)) st.sections.set(key, { name, values: [], tone: sectionTone(name) });
       st.section = key;
     } else st.section = undefined;
-    const tone = sm ? st.sections.get(fold(sm[1].trim()))?.tone : undefined;
+    const tone = sm ? st.sections.get(fold(stripEmoji(sm[1])))?.tone : undefined;
     return push({ kind: 'header', segments: [{ text: line, cls: 'hdr' }], section: sm?.[1].trim(), tone });
   }
   if (/^\/\//.test(trimmed)) return push({ kind: 'comment', segments: [{ text: line, cls: 'cmt' }] });
@@ -1099,7 +1111,7 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     return push({ kind: 'command', segments: [{ text: cmd[1], cls: 'text' }, { text: cmd[2], cls: 'func' }, { text: cmd[3] ?? '', cls: 'kw' }] });
   }
 
-  const scope: Scope = { vars: st.vars, funcs: st.funcs, group: st.group, prev: st.prev, lines: st.lines, sections: st.sections };
+  const scope: Scope = { vars: st.vars, funcs: st.funcs, group: st.group, prev: st.prev, lines: st.lines, sections: st.sections, section: st.section };
 
   // "Sobra %": percentual de um valor (ou da linha anterior) sobre as receitas
   const pm = line.match(PCT_LINE_RE);
@@ -1149,13 +1161,13 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     body = xm[1] + xm[2];
     fill = xm[1].length + xm[2].length + xm[3].length;
   } else if (am && !/^\s*\d/.test(am[2])) {
-    assign = fold(am[2].trim());
+    assign = fold(stripEmoji(am[2]));
     pre.push({ text: am[1], cls: 'text' }, { text: am[2], cls: 'assign' }, { text: am[3], cls: 'op' });
     body = am[4];
   } else {
     const lm = line.match(LABEL_RE);
     if (lm && lm[4].trim()) {
-      label = lm[2].trim();
+      label = stripEmoji(lm[2]) || lm[2].trim();
       pre.push({ text: lm[1], cls: 'text' }, { text: lm[2] + lm[3], cls: 'label' });
       body = lm[4];
     }
@@ -1212,7 +1224,7 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     if (refsSection && !label) label = xm![2].trim();
     const secToks = toks.filter((t): t is { k: 'section'; name: string } => t.k === 'section');
     const tone = secToks.length === 1 && toks.filter((t) => t.k !== 'agg').length === 1 ? st.sections.get(secToks[0].name)?.tone : undefined;
-    return push({ kind: 'value', value, segments, label: label ?? (assign ? am![2].trim() : undefined), assigned: assign, tone, due, fillEnd: dueText ? line.length - dueText.length : undefined, aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill });
+    return push({ kind: 'value', value, segments, label: label ?? (assign ? stripEmoji(am![2]) : undefined), assigned: assign, tone, due, fillEnd: dueText ? line.length - dueText.length : undefined, aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill });
   } catch (e) {
     const code = e instanceof CalcError ? e.code + (e.detail ? `:${e.detail}` : '') : 'syntax';
     return push({ kind: 'error', error: code, segments, label });

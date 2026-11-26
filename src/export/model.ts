@@ -3,6 +3,7 @@
  * os elementos gráficos já prontos para PDF, Word, PowerPoint e Excel.
  */
 import { useData } from '../store/data';
+import { fold } from '../engine/units';
 import { compareRows, noteFigures } from '../lib/compare';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -298,6 +299,14 @@ export async function buildExport(
         while (lines.length && lines[0].kind === 'empty') lines.shift();
         while (lines.length && lines[lines.length - 1].kind === 'empty') lines.pop();
         if (lines.length) blocks.push({ type: 'calc', lines });
+        // comprovantes (fotos) logo abaixo do cálculo, com o nome do lançamento
+        if (withImages)
+          for (const a of b.attachments ?? []) {
+            if (!a.mime.startsWith('image/')) continue;
+            const li = b.text.split('\n').findIndex((l, k) => (res[k]?.label ?? l.trim()) && fold(res[k]?.label ?? l.trim()) === a.line);
+            const { w, h } = a.w && a.h ? { w: a.w, h: a.h } : await imageSize(a.src);
+            blocks.push({ type: 'image', src: a.src, caption: (li >= 0 ? (res[li]?.label ?? '') + ' · ' : '') + a.name, width: 60, w, h });
+          }
         // rodapé Σ (soma · média · linhas) quando o bloco é um grupo só, como na tela
         const first = res.findIndex((x) => x.kind === 'value');
         let last = -1;

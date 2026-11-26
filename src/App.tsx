@@ -62,6 +62,19 @@ export function App() {
     }
   }, [settings.theme, settings.customTheme, settings.synColors, settings.font, settings.fontSize, lang]);
 
+  // digitando (campo com foco): esconde o botão flutuante de microfone no celular
+  useEffect(() => {
+    const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable);
+    const on = (e: FocusEvent) => isField(e.target) && document.documentElement.classList.add('editing');
+    const off = (e: FocusEvent) => isField(e.target) && !isField(e.relatedTarget) && document.documentElement.classList.remove('editing');
+    document.addEventListener('focusin', on);
+    document.addEventListener('focusout', off);
+    return () => {
+      document.removeEventListener('focusin', on);
+      document.removeEventListener('focusout', off);
+    };
+  }, []);
+
   // atalhos de teclado
   useEffect(() => {
     const k = (e: KeyboardEvent) => {

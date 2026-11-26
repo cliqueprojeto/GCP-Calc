@@ -360,3 +360,34 @@ describe('ditado', () => {
     expect(dictationToLines('2 pacotes de café 18,90', 'pt', { decimal: 'comma', symbol: 'R$' })).toEqual(['Café: 2 * R$ 18,90']);
   });
 });
+
+describe('seções sem rigidez', () => {
+  it('variáveis com "=" contam na seção, nomes sem # e total da seção inteira', () => {
+    const r = run(['#receitas', 'moeda = R$ 3,00', 'salário = R$ 1.000,00', 'verdemar= R$ 200,00', 'total #receitas', '', '#despesas', 'Arroz: R$ 3,00', '', 'Arroz: R$ 10,00', 'total', '', 'total #receitas - total #despesas', 'total: #receitas-#despesas', '= #receitas - #despesas', 'receitas - despesas', 'sobra = receitas - despesas', 'pessoas = 2', 'sobra / pessoas'].join('\n'));
+    expect(r[4]).toBe('R$ 1.203,00');
+    expect(r[10]).toBe('R$ 13,00');
+    expect(r[12]).toBe('R$ 1.190,00');
+    expect(r[13]).toBe('R$ 1.190,00');
+    expect(r[14]).toBe('R$ 1.190,00');
+    expect(r[15]).toBe('R$ 1.190,00');
+    expect(r[16]).toBe('R$ 1.190,00');
+    expect(r[18]).toBe('R$ 595,00');
+  });
+  it('percentuais e quantidades não entram no total da seção', () => {
+    const r = run(['#Viagem', 'Hotel: R$ 900', 'dias = 3', 'taxa = 10%', 'Passeio: R$ 300', 'total'].join('\n'));
+    expect(r[5]).toBe('R$ 1.200,00');
+  });
+});
+
+describe('emojis nas linhas', () => {
+  it('enfeitam sem quebrar a conta', () => {
+    const r = run(['# 💰 Receitas', '💼 Salário: R$ 3.000', '🎁 bonus = R$ 500', '#🛒Mercado', '🍚 Arroz: R$ 30', '☕ Café: 18', 'total', '', '✅ Saldo: Receitas - Mercado', 'Salário + bonus', '⭐ Arroz * 2'].join('\n'));
+    expect(r[1]).toBe('R$ 3.000,00');
+    expect(r[2]).toBe('R$ 500,00');
+    expect(r[5]).toBe('R$ 18,00');
+    expect(r[6]).toBe('R$ 48,00');
+    expect(r[8]).toBe('R$ 3.452,00');
+    expect(r[9]).toBe('R$ 3.500,00');
+    expect(r[10]).toBe('R$ 60,00');
+  });
+});

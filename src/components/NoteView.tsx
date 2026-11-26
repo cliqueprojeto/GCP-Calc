@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState, useEffect } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -36,6 +36,7 @@ import {
 import { SaveTemplateModal } from './TemplateDialogs';
 import { OrganizeModal } from './OrganizeModal';
 import { CompareBlock } from './CompareBlock';
+import { AttachChooser, ReceiptViewer, ReceiptsStrip, attachFlow } from './Receipts';
 import { AudioBlock } from './AudioBlock';
 import { VoiceCapture, type VoiceResult } from './VoiceCapture';
 import { dataUrlToBlob } from '../lib/voice';
@@ -45,8 +46,8 @@ import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState
 import { formatValue, plainNumber } from '../engine/value';
 import { formatOptions, useEvalContext } from '../lib/calcContext';
 import { NoteIcon } from '../lib/icons';
-import { copyText, saveBinaryFile, saveTextFile, uid } from '../lib/platform';
-import type { Block, BlockType, Note } from '../lib/types';
+import { copyText, isMobile, saveBinaryFile, saveTextFile, uid } from '../lib/platform';
+import type { Attachment, Block, BlockType, Note } from '../lib/types';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { useT } from '../i18n';
@@ -58,6 +59,13 @@ import { CalloutBlock, ChartBlock, DividerBlock, HeadingBlock, ImageBlock, Progr
 import { IconPicker } from './IconPicker';
 import { Assistant } from './Assistant';
 import { Menu, MenuItem } from './ui';
+
+/** chave estável de uma linha (para ligar comprovantes): o nome do lançamento ou o texto */
+export function lineKey(text: string, results: { label?: string }[], i: number): string | undefined {
+  const r = results[i];
+  const raw = r?.label ?? text.split('\n')[i]?.trim();
+  return raw ? fold(raw) : undefined;
+}
 
 export function newBlock(type: BlockType, settingsBase = 'BRL', favs: string[] = []): Block {
   const id = uid();
@@ -117,6 +125,43 @@ export function NoteView({ note }: { note: Note }) {
   const [iconFor, setIconFor] = useState<null | 'note' | string>(null);
   const [savingTpl, setSavingTpl] = useState(false);
   const reminders = useData((s) => s.reminders);
+  // comprovantes
+  const [viewer, setViewer] = useState<{ blockId: string; index: number } | null>(null);
+  const [chooser, setChooser] = useState<{ blockId: string; line?: string } | null>(null);
+  const addAttachments = (blockId: string, list: Attachment[]) =>
+    updateNote(note.id, (n) => {
+      const blk = n.blocks.find((x) => x.id === blockId);
+      if (blk?.type === 'calc') blk.attachments = [...(blk.attachments ?? []), ...list];
+    });
+  const startAttach = (blockId: string, line?: string) => {
+    // no celular: câmera ou arquivo; no computador: direto para os arquivos
+    if (isMobile) setChooser({ blockId, line });
+    else void attachFlow(false, line, (l) => addAttachments(blockId, l), t);
+  };
+  const labelOfAttachment = (blockId: string) => (a: Attachment) => {
+    if (!a.line) return undefined;
+    const blk = note.blocks.find((x) => x.id === blockId);
+    const res = ev.perBlock.get(blockId)?.results ?? [];
+    if (blk?.type !== 'calc') return undefined;
+    const lines = blk.text.split('\n');
+    const i = lines.findIndex((_, k) => lineKey(blk.text, res, k) === a.line);
+    return i >= 0 ? res[i]?.label ?? lines[i].trim().slice(0, 30) : undefined;
+  };
+  useEffect(() => {
+    if (!ui.attachRequest || Date.now() - ui.attachRequest > 1500) return;
+    const blockId = ui.focusBlock && note.blocks.some((x) => x.id === ui.focusBlock && x.type === 'calc') ? ui.focusBlock : nearestCalc();
+    if (!blockId) return;
+    const blk = note.blocks.find((x) => x.id === blockId) as Extract<Block, { type: 'calc' }>;
+    const ta = document.querySelector<HTMLTextAreaElement>(`.calc[data-block="${blockId}"] .calc-input`);
+    const idx = ta ? ta.value.slice(0, ta.selectionStart).split('\n').length - 1 : 0;
+    startAttach(blockId, lineKey(blk.text, ev.perBlock.get(blockId)?.results ?? [], idx));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.attachRequest]);
+  // teclado de operadores: 🎤 grava, 📷 anexa comprovante
+  useEffect(() => {
+    if (ui.voiceRequest && Date.now() - ui.voiceRequest < 1500) void openVoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.voiceRequest]);
   const [organizing, setOrganizing] = useState<string | null>(null);
   const [voice, setVoice] = useState<{ target?: string; audio?: Extract<Block, { type: 'audio' }>; blob?: Blob } | null>(null);
   /** bloco de cálculo mais próximo (o anterior; se não houver, o primeiro) */
@@ -501,6 +546,16 @@ export function NoteView({ note }: { note: Note }) {
                   autoFocus={lastAdded === b.id}
                   onAiCommand={(line, q) => runInlineAi(b.id, line, q)}
                   known={known}
+                  attachCount={(i) => {
+                    const key = lineKey(b.text, e?.results ?? [], i);
+                    return (b.attachments ?? []).filter((a) => a.line === key).length;
+                  }}
+                  onAttach={(i) => startAttach(b.id, lineKey(b.text, e?.results ?? [], i))}
+                  onShowAttach={(i) => {
+                    const key = lineKey(b.text, e?.results ?? [], i);
+                    const list = b.attachments ?? [];
+                    setViewer({ blockId: b.id, index: Math.max(0, list.findIndex((a) => a.line === key)) });
+                  }}
                   hasReminder={(i) => {
                     const r = e?.results[i];
                     return !!r?.label && reminders.some((x) => !x.deleted && x.noteId === note.id && fold(x.title) === fold(r.label!));
@@ -577,6 +632,9 @@ export function NoteView({ note }: { note: Note }) {
                   </button>
                 </div>
                 {body}
+                {b.type === 'calc' && (
+                  <ReceiptsStrip items={b.attachments ?? []} labelOf={labelOfAttachment(b.id)} onOpen={(i) => setViewer({ blockId: b.id, index: i })} onAdd={() => startAttach(b.id)} />
+                )}
                 {sum && (
                   <div className="block-sum">
                     <button
@@ -629,6 +687,27 @@ export function NoteView({ note }: { note: Note }) {
               toast(t('org.done'), 'ok');
             }}
             onClose={() => setOrganizing(null)}
+          />
+        );
+      })()}
+      {chooser && <AttachChooser open onClose={() => setChooser(null)} onPick={(camera) => void attachFlow(camera, chooser.line, (l) => addAttachments(chooser.blockId, l), t)} />}
+      {viewer && (() => {
+        const blk = note.blocks.find((x) => x.id === viewer.blockId);
+        const items = blk?.type === 'calc' ? blk.attachments ?? [] : [];
+        if (!items.length) return null;
+        return (
+          <ReceiptViewer
+            items={items}
+            index={Math.min(viewer.index, items.length - 1)}
+            labelOf={labelOfAttachment(viewer.blockId)}
+            onIndex={(index) => setViewer({ ...viewer, index })}
+            onDelete={(a) =>
+              updateNote(note.id, (n) => {
+                const b2 = n.blocks.find((x) => x.id === viewer.blockId);
+                if (b2?.type === 'calc') b2.attachments = (b2.attachments ?? []).filter((x) => x.id !== a.id);
+              })
+            }
+            onClose={() => setViewer(null)}
           />
         );
       })()}
