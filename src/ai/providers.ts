@@ -1,5 +1,5 @@
 /**
- * Provedores de IA: Anthropic Claude, OpenAI, Google Gemini, Mistral, Groq, DeepSeek,
+ * Provedores de IA: Anthropic, OpenAI, Google Gemini, Mistral, Groq, DeepSeek,
  * xAI, OpenRouter, Ollama (local) e qualquer servidor compatível com a API da OpenAI.
  */
 import Anthropic from '@anthropic-ai/sdk';
@@ -16,7 +16,7 @@ export interface ProviderMeta {
 }
 
 export const PROVIDERS: ProviderMeta[] = [
-  { kind: 'anthropic', name: 'Anthropic Claude', baseUrl: 'https://api.anthropic.com', keyUrl: 'https://console.anthropic.com/settings/keys', needsKey: true, hint: 'sk-ant-…' },
+  { kind: 'anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com', keyUrl: 'https://console.anthropic.com/settings/keys', needsKey: true, hint: 'sk-ant-…' },
   { kind: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', keyUrl: 'https://platform.openai.com/api-keys', needsKey: true, hint: 'sk-…' },
   { kind: 'gemini', name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', keyUrl: 'https://aistudio.google.com/app/apikey', needsKey: true, hint: 'AIza…' },
   { kind: 'mistral', name: 'Mistral AI', baseUrl: 'https://api.mistral.ai/v1', keyUrl: 'https://console.mistral.ai/api-keys', needsKey: true, hint: '' },

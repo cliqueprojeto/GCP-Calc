@@ -483,7 +483,7 @@ function AiSettings() {
             className="btn sm primary"
             onClick={() => {
               const id = uid();
-              save([...ai.providers, { id, kind: 'anthropic', name: 'Anthropic Claude', apiKey: '' }], ai.active ?? id);
+              save([...ai.providers, { id, kind: 'anthropic', name: 'Anthropic', apiKey: '' }], ai.active ?? id);
             }}
           >
             <Plus size={14} /> {t('ai.add')}
