@@ -2,7 +2,8 @@
 // de node_modules para public/runtimes, para irem embutidos no app — nada é baixado em uso.
 import fs from 'node:fs';
 import path from 'node:path';
-const ROOT = new URL('..', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const out = path.join(ROOT, 'public/runtimes');
 const copy = (from, to) => {
   fs.mkdirSync(path.dirname(to), { recursive: true });

@@ -4,7 +4,8 @@
 // continua e o app usa a transcrição pela IA configurada.
 import fs from 'node:fs';
 import path from 'node:path';
-const ROOT = new URL('..', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const REPO = 'onnx-community/whisper-base';
 const DIR = path.join(ROOT, 'public/runtimes/whisper', REPO);
 const FILES = [
