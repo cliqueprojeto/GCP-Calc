@@ -38,6 +38,7 @@ import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { useT } from '../i18n';
 import { CalcEditor } from './CalcEditor';
+import { isTransient, nextStep, orderedProviders } from '../ai/assist';
 import type { ExportFormat } from '../export';
 import { evaluateNote, chartDataFor, type Evaluated } from '../lib/noteEval';
 import { CalloutBlock, ChartBlock, DividerBlock, HeadingBlock, ImageBlock, ProgressBlock, StickerBlock, TickerBlock } from './Blocks';
@@ -236,6 +237,51 @@ export function NoteView({ note }: { note: Note }) {
     }
   };
 
+  /** "/ia pergunta" + Enter: a IA responde direto na nota, substituindo a linha do comando. */
+  const runInlineAi = async (blockId: string, lineIndex: number, question: string) => {
+    const st = useData.getState();
+    const providers = orderedProviders(st.settings.ai.providers, st.settings.ai.active);
+    if (!providers.length) {
+      toast(t('inline.noAi'), 'error');
+      return;
+    }
+    const placeholder = `// ${t('inline.thinking')}… ${question}`;
+    const original = `/ia ${question}`;
+    const replaceLine = (find: string, lines: string[]) => {
+      const n = useData.getState().notes.find((x) => x.id === note.id);
+      const b = n?.blocks.find((x) => x.id === blockId);
+      if (!b || b.type !== 'calc') return;
+      const arr = b.text.split('\n');
+      let i = arr.findIndex((l) => l.trim() === find);
+      if (i < 0) i = Math.min(lineIndex, arr.length - 1);
+      arr.splice(i, 1, ...lines);
+      updateBlock(note.id, blockId, { text: arr.join('\n') });
+    };
+    // marca a linha como "calculando" enquanto a IA responde
+    {
+      const arr = (note.blocks.find((x) => x.id === blockId) as { text: string }).text.split('\n');
+      arr[lineIndex] = placeholder;
+      updateBlock(note.id, blockId, { text: arr.join('\n') });
+    }
+    try {
+      const step = await nextStep(providers, { lang: ctx.lang, decimal: ctx.decimal, baseCurrency: st.settings.baseCurrency, goal: question, noteContext: ev.context, turns: [], inline: true }, undefined, (m) =>
+        toast(t('assist.fallback', { model: m })),
+      );
+      if (step.type === 'result') {
+        replaceLine(placeholder, [`// IA: ${question}`, ...step.lines.filter((l) => l.trim() !== '')]);
+        toast(t('inline.done'), 'ok');
+      } else {
+        // a IA precisa de um dado essencial: continua no assistente, já com a pergunta dela
+        replaceLine(placeholder, [`// IA: ${question}`]);
+        ui.set({ assistant: { noteId: note.id, afterBlock: blockId, goal: question, turns: [{ step }] } });
+        toast(t('inline.asked'));
+      }
+    } catch (e) {
+      replaceLine(placeholder, [original]);
+      toast(isTransient(e) ? t('assist.busy') : `${t('assist.error')}: ${String((e as Error)?.message || e).slice(0, 160)}`, 'error');
+    }
+  };
+
   const assistantHere = ui.assistant?.noteId === note.id;
   const assistantAfter = assistantHere ? (ui.assistant?.afterBlock ?? note.blocks[note.blocks.length - 1]?.id) : undefined;
 
@@ -349,7 +395,18 @@ export function NoteView({ note }: { note: Note }) {
           switch (b.type) {
             case 'calc': {
               const e = ev.perBlock.get(b.id);
-              body = <CalcEditor blockId={b.id} text={b.text} results={e?.results ?? []} firstLine={e?.firstLine ?? 1} fmt={fmt} onChange={(text) => set({ text })} autoFocus={lastAdded === b.id} />;
+              body = (
+                <CalcEditor
+                  blockId={b.id}
+                  text={b.text}
+                  results={e?.results ?? []}
+                  firstLine={e?.firstLine ?? 1}
+                  fmt={fmt}
+                  onChange={(text) => set({ text })}
+                  autoFocus={lastAdded === b.id}
+                  onAiCommand={(line, q) => runInlineAi(b.id, line, q)}
+                />
+              );
               break;
             }
             case 'chart':
@@ -415,12 +472,13 @@ export function NoteView({ note }: { note: Note }) {
               </div>
               {assistantAfter === b.id && (
                 <Assistant
-                  key={`as-${ui.assistant?.goal ?? ''}`}
+                  key={`as-${ui.assistant?.goal ?? ''}-${ui.assistant?.turns?.length ?? 0}`}
                   ctx={ctx}
                   noteState={ev.final}
                   noteContext={ev.context}
                   hasValues={ev.hasValues}
                   initialGoal={ui.assistant?.goal}
+                  initialTurns={ui.assistant?.turns}
                   onInsert={(lines) => insertLines(lines)}
                   onAddChart={() => addBlock('chart', b.id)}
                   onClose={() => ui.set({ assistant: undefined })}

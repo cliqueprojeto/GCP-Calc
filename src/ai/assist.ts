@@ -78,11 +78,70 @@ export function parseStep(text: string): AssistStep {
   throw new Error('bad-step');
 }
 
+// ------------------------------------------------------------ resiliência
+
+/** Erros passageiros do provedor (sobrecarga, limite de uso, rede): vale tentar de novo. */
+export function isTransient(e: unknown): boolean {
+  const err = e as { status?: number; message?: string };
+  const status = err?.status;
+  if (status && [408, 409, 425, 429, 500, 502, 503, 504, 529].includes(status)) return true;
+  return /\b(408|429|500|502|503|504|529)\b|overload|high demand|rate.?limit|too many requests|temporar|unavailable|timed? ?out|network|fetch failed|ECONN/i.test(String(err?.message ?? e));
+}
+
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => (clearTimeout(t), reject(new DOMException('aborted', 'AbortError'))), { once: true });
+  });
+
+/**
+ * Conversa com tolerância a falhas: tenta de novo em erros passageiros (503 "high demand",
+ * 429, rede) e, se o modelo continuar indisponível, passa para outros modelos do mesmo
+ * provedor e depois para os outros provedores configurados.
+ */
+export async function resilientChat(
+  providers: AiProvider[],
+  system: string,
+  messages: ChatMessage[],
+  signal?: AbortSignal,
+  onFallback?: (label: string) => void,
+): Promise<string> {
+  const plan: AiProvider[] = [];
+  for (const p of providers) {
+    plan.push(p);
+    // até 2 modelos alternativos do mesmo provedor (os mais capazes da lista já ordenada)
+    for (const m of (p.models ?? []).filter((m) => m !== p.model).slice(0, 2)) plan.push({ ...p, model: m });
+  }
+  let lastErr: unknown = new Error('no-provider');
+  const dead = new Set<string>();
+  for (let k = 0; k < plan.length; k++) {
+    const p = plan[k];
+    if (dead.has(p.id)) continue;
+    if (k > 0) onFallback?.(`${p.name}${p.model ? ' · ' + p.model : ''}`);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await chat(p, system, messages, signal);
+      } catch (e) {
+        if (signal?.aborted) throw e;
+        lastErr = e;
+        if (!isTransient(e)) {
+          // chave inválida, modelo inexistente etc.: não adianta insistir neste provedor
+          if (/\b(401|403)\b|api key|unauthor|forbidden|permission/i.test(String((e as Error)?.message ?? e))) dead.add(p.id);
+          break;
+        }
+        if (attempt < 2) await sleep(1500 * (attempt + 1) ** 2, signal);
+      }
+    }
+  }
+  throw lastErr;
+}
+
 /** Pede o próximo passo à IA a partir do objetivo, do contexto da nota e das respostas já dadas. */
 export async function nextStep(
-  provider: AiProvider,
-  opts: { lang: Lang; decimal: 'comma' | 'dot'; baseCurrency: string; goal: string; noteContext: string; turns: Turn[] },
+  providers: AiProvider[],
+  opts: { lang: Lang; decimal: 'comma' | 'dot'; baseCurrency: string; goal: string; noteContext: string; turns: Turn[]; inline?: boolean },
   signal?: AbortSignal,
+  onFallback?: (label: string) => void,
 ): Promise<AssistStep> {
   const messages: ChatMessage[] = [
     {
@@ -94,13 +153,22 @@ export async function nextStep(
     messages.push({ role: 'assistant', content: JSON.stringify(t.step) });
     if (t.answer !== undefined) messages.push({ role: 'user', content: t.answer });
   }
-  const sys = systemPrompt(opts.lang, opts.decimal, opts.baseCurrency);
-  const raw = await chat(provider, sys, messages, signal);
+  let sys = systemPrompt(opts.lang, opts.decimal, opts.baseCurrency);
+  if (opts.inline) {
+    sys += `\n\nThe user typed this request directly inside the note (command "/ia"). Reply with "result" right away whenever possible: make reasonable assumptions and state them in a "//" comment line. Use "ask" only if an essential number is truly missing and cannot be assumed.`;
+  }
+  const raw = await resilientChat(providers, sys, messages, signal, onFallback);
   try {
     return parseStep(raw);
   } catch {
     // uma nova tentativa pedindo o formato
-    const retry = await chat(provider, sys, [...messages, { role: 'assistant', content: raw }, { role: 'user', content: 'Reply again with ONLY the JSON object.' }], signal);
+    const retry = await resilientChat(providers, sys, [...messages, { role: 'assistant', content: raw }, { role: 'user', content: 'Reply again with ONLY the JSON object.' }], signal, onFallback);
     return parseStep(retry);
   }
+}
+
+/** Provedores na ordem de uso: o ativo primeiro, depois os demais (como reserva). */
+export function orderedProviders(list: AiProvider[], activeId?: string): AiProvider[] {
+  const active = list.find((p) => p.id === activeId) ?? list[0];
+  return active ? [active, ...list.filter((p) => p.id !== active.id)] : [];
 }

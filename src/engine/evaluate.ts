@@ -871,7 +871,10 @@ function callFunc(name: string, a: Value[], ctx: EvalContext): Value {
 
 // --------------------------------------------------------------- documento
 
-export type LineKind = 'empty' | 'header' | 'comment' | 'value' | 'text' | 'error' | 'def';
+export type LineKind = 'empty' | 'header' | 'comment' | 'value' | 'text' | 'error' | 'def' | 'command';
+
+/** Linha de comando da IA: "/ia pergunta" (também /ai). */
+export const AI_COMMAND = /^(\s*)(\/(?:ia|ai))(\s+.*)?$/i;
 
 export interface LineResult {
   kind: LineKind;
@@ -921,6 +924,10 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
   if (!trimmed) return push({ kind: 'empty', segments: line ? [{ text: line, cls: 'text' }] : [] });
   if (/^#+(\s|$)/.test(trimmed)) return push({ kind: 'header', segments: [{ text: line, cls: 'hdr' }] });
   if (/^\/\//.test(trimmed)) return push({ kind: 'comment', segments: [{ text: line, cls: 'cmt' }] });
+  const cmd = line.match(AI_COMMAND);
+  if (cmd) {
+    return push({ kind: 'command', segments: [{ text: cmd[1], cls: 'text' }, { text: cmd[2], cls: 'func' }, { text: cmd[3] ?? '', cls: 'kw' }] });
+  }
 
   const scope: Scope = { vars: st.vars, funcs: st.funcs, group: st.group, prev: st.prev, lines: st.lines };
   const pre: Segment[] = [];

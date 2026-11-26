@@ -201,3 +201,22 @@ describe('conteúdo embutido sem erros', () => {
     });
   }
 });
+
+import { isTransient } from '../src/ai/assist';
+
+describe('IA: comando /ia e erros passageiros', () => {
+  it('reconhece /ia como comando (sem resultado nem erro)', () => {
+    const st = newDocState();
+    const r = evaluateLine('/ia quanto investir por mês?', defaultContext({ rates }), st);
+    expect(r.kind).toBe('command');
+    expect(r.segments.map((s) => s.text).join('')).toBe('/ia quanto investir por mês?');
+    expect(evaluateLine('  /AI how much?', defaultContext({ rates }), st).kind).toBe('command');
+    expect(evaluateLine('10 / 2', defaultContext({ rates }), st).kind).toBe('value');
+  });
+  it('classifica sobrecarga do provedor como passageira', () => {
+    expect(isTransient(new Error('503: This model is currently experiencing high demand. Spikes in demand are usually temporary.'))).toBe(true);
+    expect(isTransient({ status: 529, message: 'overloaded' })).toBe(true);
+    expect(isTransient(new Error('429: Too Many Requests'))).toBe(true);
+    expect(isTransient(new Error('401: invalid x-api-key'))).toBe(false);
+  });
+});

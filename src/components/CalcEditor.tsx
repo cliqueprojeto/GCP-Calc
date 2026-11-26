@@ -4,7 +4,7 @@
  */
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Copy, RefreshCw } from 'lucide-react';
-import type { LineResult } from '../engine/evaluate';
+import { AI_COMMAND, type LineResult } from '../engine/evaluate';
 import { formatValue, plainNumber, type FormatOptions, type Value } from '../engine/value';
 import { copyText } from '../lib/platform';
 import { useRates } from '../lib/rates';
@@ -58,9 +58,11 @@ export interface CalcEditorProps {
   firstLine: number;
   onChange(text: string): void;
   autoFocus?: boolean;
+  /** "/ia pergunta" + Enter */
+  onAiCommand?(lineIndex: number, question: string): void;
 }
 
-export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus }: CalcEditorProps) {
+export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand }: CalcEditorProps) {
   const t = useT();
   const taRef = useRef<HTMLTextAreaElement>(null);
   const srcRef = useRef<HTMLDivElement>(null);
@@ -103,6 +105,16 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget;
+    // "/ia pergunta" + Enter: a IA escreve o cálculo no lugar da linha
+    if (e.key === 'Enter' && !e.shiftKey && onAiCommand) {
+      const idx = ta.value.slice(0, ta.selectionStart).split('\n').length - 1;
+      const m = ta.value.split('\n')[idx]?.match(AI_COMMAND);
+      if (m && m[3]?.trim()) {
+        e.preventDefault();
+        onAiCommand(idx, m[3].trim());
+        return;
+      }
+    }
     // Tab recua/avança a linha como num editor de código
     if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
@@ -191,6 +203,13 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
                   <span>{s}</span>
                   <Copy size={12} className="res-copy" />
                 </button>
+              </div>
+            );
+          }
+          if (r.kind === 'command') {
+            return (
+              <div key={i} className="res cmd">
+                <span className="res-cmd">{t('inline.hint')}</span>
               </div>
             );
           }

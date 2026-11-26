@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Turn } from '../ai/assist';
 
 export type View = { kind: 'note'; id: string } | { kind: 'settings'; section?: string } | { kind: 'trash' } | { kind: 'templates' } | { kind: 'home' };
 
@@ -17,7 +18,7 @@ interface UiState {
   /** bloco de cálculo focado (para o teclado e o assistente) */
   focusBlock?: string;
   /** assistente aberto na nota (id do bloco depois do qual ele aparece) */
-  assistant?: { noteId: string; afterBlock?: string; goal?: string };
+  assistant?: { noteId: string; afterBlock?: string; goal?: string; turns?: Turn[] };
   toasts: Toast[];
   go(v: View): void;
   set(p: Partial<UiState>): void;
@@ -42,7 +43,7 @@ export const useUi = create<UiState>((set, get) => ({
   toast(text, kind = 'info') {
     const id = ++tid;
     set({ toasts: [...get().toasts, { id, text, kind }] });
-    setTimeout(() => set({ toasts: get().toasts.filter((t) => t.id !== id) }), 2600);
+    setTimeout(() => set({ toasts: get().toasts.filter((t) => t.id !== id) }), kind === 'error' ? 7000 : text.length > 60 ? 4500 : 2600);
   },
 }));
 

@@ -2876,3 +2876,95 @@ html.tiling .btn.grad {
     flex-direction: column;
   }
 }
+
+/* ---------------------------------------- assistente: tela inicial e /ia */
+.as-intro {
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+.as-section {
+  padding: 10px 0;
+  border-top: 1px dashed var(--border);
+}
+.as-section:first-of-type {
+  border-top: 0;
+}
+.as-section .as-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0;
+}
+.as-hint {
+  margin: -2px 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.as-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0 8px;
+}
+.as-examples > span {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.chip.ghost {
+  background: transparent;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  text-align: left;
+}
+.as-tip {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.as-tip code {
+  font-family: var(--font-calc);
+  color: var(--syn-func);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  margin-right: 4px;
+}
+.as-wiz {
+  align-items: flex-start;
+}
+.as-wiz-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.as-wiz-text small {
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.res-cmd {
+  font-size: 0.74em;
+  color: var(--syn-func);
+  padding-top: 0.35em;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.k-command {
+  background: color-mix(in srgb, var(--syn-func) 8%, transparent);
+  border-radius: 4px;
+}
+.toast {
+  max-width: min(560px, calc(100vw - 32px));
+  text-align: center;
+  line-height: 1.45;
+}

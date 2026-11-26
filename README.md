@@ -55,7 +55,9 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 |---|---|---|
 | Juros compostos com aportes · Financiamento (parcelas fixas) · Orçamento 50/30/20 · Valor da hora (freelancer) | Dividir a conta com gorjeta · Desconto e acréscimo · Variação percentual · Regra de três · Combustível da viagem | Unidades (14 grandezas) · Moedas e criptomoedas |
 
-Com uma IA configurada, o assistente aceita qualquer pedido ("quanto juntar por mês para R$ 20 mil em 2 anos?"), explica a nota e revisa os cálculos — sempre com botões e prévia, sem sair da nota. Provedores suportados: **Anthropic, OpenAI, Google Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama (local)** e qualquer API compatível com OpenAI. O botão **Testar API** confere a chave, lista os modelos e escolhe o melhor disponível. A chave fica só no seu aparelho.
+**Comando `/ia` direto na nota:** em qualquer bloco de cálculo, digite `/ia` seguido da pergunta (ex.: `/ia quanto devo investir por mês para dobrar R$ 500?`) e aperte **Enter** — a IA escreve as linhas do cálculo ali mesmo, já calculadas. Se faltar algum dado essencial, o assistente abre com a pergunta dela em botões.
+
+Com uma IA configurada, o assistente aceita qualquer pedido ("quanto juntar por mês para R$ 20 mil em 2 anos?"), explica a nota e revisa os cálculos — sempre com botões e prévia, sem sair da nota. Provedores suportados: **Anthropic, OpenAI, Google Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama (local)** e qualquer API compatível com OpenAI. O botão **Testar API** confere a chave, lista os modelos e escolhe o melhor disponível. Se o provedor estiver sobrecarregado (erros 503/429), o app tenta de novo sozinho e, se preciso, usa outro modelo do mesmo provedor ou outro provedor configurado. A chave fica só no seu aparelho.
 
 ### Modelos prontos
 
@@ -67,7 +69,7 @@ Orçamento do mês · Viagem internacional (várias moedas) · Orçamento de pro
 - **Português, inglês e espanhol completos**, com detecção automática do idioma do sistema (troca rápida na barra superior).
 - Resultado clicável: um clique copia o valor; o rodapé de cada bloco mostra soma e média.
 - Teclado de operadores no celular, áreas seguras do Android (barra de status, gestos e teclado).
-- Atalhos: `Ctrl+K` busca · `Ctrl+N` nova nota · `Ctrl+J` assistente · `Ctrl+,` configurações · `Tab`/`Shift+Tab` recuam linhas.
+- Atalhos: `/ia` + Enter pergunta à IA · `Ctrl+K` busca · `Ctrl+N` nova nota · `Ctrl+J` assistente · `Ctrl+,` configurações · `Tab`/`Shift+Tab` recuam linhas.
 
 ### Atualizações automáticas
 
@@ -270,6 +272,7 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Percentages** (`300 + 10%`, `20% of 300`, `50 as % of 200`), **variables**, labels, custom functions, `total`/`average`/`prev`, dates, `pmt`/`fv`/`pv`, hex and binary.
 - **Notes with name, color and icon** (1,500+ Lucide icons and emoji), folders, trash, templates and quick search (`Ctrl+K`).
 - **Graphic blocks**: charts built from your calculations, goals with progress bars, rates board, callouts, images, stickers.
+- **`/ia` command**: type `/ia` + your question in any block and press Enter — the AI writes the calculation lines right there.
 - **Step-by-step assistant** inside the note (not a side chat): contextual buttons, choices and fields until the calculation lines are ready, with a live preview. 11 guided assistants work offline; optional AI (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama or any OpenAI-compatible API) with an API test button.
 - **Themes**: premium, Omarchy-style code-editor palettes, classic light/dark, follow system and custom; **syntax colors configurable per theme**.
 - **Premium export**: PDF with selectable text, editable Word and PowerPoint (native charts), and a smartly organized Excel (sections, formats, SUM/AVERAGE formulas, named variables and live formulas) — with all graphic elements.
@@ -288,6 +291,7 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Porcentajes** (`300 + 10%`, `20% de 300`, `50 en % de 200`), **variables**, etiquetas, funciones propias, `total`/`promedio`/`prev`, fechas, `pmt`/`fv`/`pv`, hexadecimal y binario.
 - **Notas con nombre, color e icono** (1.500+ iconos Lucide y emojis), carpetas, papelera, plantillas y búsqueda rápida (`Ctrl+K`).
 - **Bloques gráficos**: gráficos generados de tus cálculos, metas con progreso, panel de cotizaciones, destacados, imágenes y pegatinas.
+- **Comando `/ia`**: escribe `/ia` + tu pregunta en cualquier bloque y pulsa Enter — la IA escribe las líneas del cálculo ahí mismo.
 - **Asistente paso a paso** dentro de la nota (no es un chat aparte): botones contextuales, opciones y campos hasta armar las líneas del cálculo, con vista previa. 11 asistentes guiados funcionan sin conexión; IA opcional (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama o cualquier API compatible con OpenAI) con botón para probar la API.
 - **Temas**: premium, paletas de editores de código estilo Omarchy, clásicos claros/oscuros, seguir el sistema y personalizado; **colores de la sintaxis configurables por tema**.
 - **Exportación premium**: PDF con texto seleccionable, Word y PowerPoint editables (gráficos nativos) y Excel organizado de forma inteligente (secciones, formatos, fórmulas SUM/AVERAGE, variables con nombre y fórmulas vivas), con todos los elementos gráficos.

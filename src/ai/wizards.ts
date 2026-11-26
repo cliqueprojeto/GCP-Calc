@@ -21,6 +21,8 @@ export interface Wizard {
   id: string;
   icon: string;
   title: L;
+  /** o que o assistente calcula, em uma linha */
+  desc: L;
   steps: WizardStep[];
   build(a: Record<string, string>, o: { lang: Lang; cur: string; dec: string }): string[];
 }
@@ -59,6 +61,7 @@ export const WIZARDS: Wizard[] = [
     id: 'compound',
     icon: 'TrendingUp',
     title: L('Juros compostos', 'Compound interest', 'Interés compuesto'),
+    desc: L('Quanto rende um investimento com aportes mensais', 'How much an investment with monthly deposits yields', 'Cuánto rinde una inversión con aportes mensuales'),
     steps: [
       { id: 'pv', q: L('Quanto você vai investir?', 'How much will you invest?', '¿Cuánto vas a invertir?'), input: 'number', placeholder: L('10.000', '10,000', '10.000') },
       { id: 'pmt', q: L('Aporte mensal (0 se não houver)', 'Monthly contribution (0 if none)', 'Aporte mensual (0 si no hay)'), input: 'number', def: () => '0' },
@@ -86,6 +89,7 @@ export const WIZARDS: Wizard[] = [
     id: 'loan',
     icon: 'Landmark',
     title: L('Financiamento (parcelas fixas)', 'Loan (fixed installments)', 'Préstamo (cuotas fijas)'),
+    desc: L('Valor da parcela, total pago e juros (Tabela Price)', 'Installment, total paid and interest (fixed payments)', 'Cuota, total pagado e intereses (cuota fija)'),
     steps: [
       { id: 'pv', q: L('Valor financiado', 'Amount financed', 'Monto financiado'), input: 'number', placeholder: L('50.000', '50,000', '50.000') },
       { id: 'rate', q: L('Juros ao mês (%)', 'Monthly interest (%)', 'Interés mensual (%)'), input: 'number', placeholder: L('1,49', '1.49', '1,49') },
@@ -117,6 +121,7 @@ export const WIZARDS: Wizard[] = [
     id: 'split',
     icon: 'Users',
     title: L('Dividir a conta', 'Split the bill', 'Dividir la cuenta'),
+    desc: L('Conta com gorjeta dividida entre pessoas', 'Bill with tip split among people', 'Cuenta con propina dividida entre personas'),
     steps: [
       { id: 'bill', q: L('Valor da conta', 'Bill amount', 'Monto de la cuenta'), input: 'number', placeholder: L('240', '240', '240') },
       {
@@ -139,6 +144,7 @@ export const WIZARDS: Wizard[] = [
     id: 'discount',
     icon: 'BadgePercent',
     title: L('Desconto e acréscimo', 'Discount & markup', 'Descuento y recargo'),
+    desc: L('Preço final com desconto ou acréscimo em %', 'Final price with a % discount or markup', 'Precio final con descuento o recargo en %'),
     steps: [
       { id: 'price', q: L('Preço original', 'Original price', 'Precio original'), input: 'number' },
       {
@@ -162,6 +168,7 @@ export const WIZARDS: Wizard[] = [
     id: 'change',
     icon: 'ArrowUpDown',
     title: L('Variação percentual', 'Percent change', 'Variación porcentual'),
+    desc: L('Quanto um valor subiu ou caiu, em %', 'How much a value went up or down, in %', 'Cuánto subió o bajó un valor, en %'),
     steps: [
       { id: 'a', q: L('Valor inicial', 'Initial value', 'Valor inicial'), input: 'number' },
       { id: 'b', q: L('Valor final', 'Final value', 'Valor final'), input: 'number' },
@@ -176,6 +183,7 @@ export const WIZARDS: Wizard[] = [
     id: 'rule3',
     icon: 'Scale',
     title: L('Regra de três', 'Rule of three', 'Regla de tres'),
+    desc: L('Proporção direta ou inversa entre valores', 'Direct or inverse proportion between values', 'Proporción directa o inversa entre valores'),
     steps: [
       { id: 'a', q: L('Se A…', 'If A…', 'Si A…'), input: 'number' },
       { id: 'b', q: L('…corresponde a B…', '…corresponds to B…', '…corresponde a B…'), input: 'number' },
@@ -196,6 +204,7 @@ export const WIZARDS: Wizard[] = [
     id: 'units',
     icon: 'Ruler',
     title: L('Converter unidades', 'Convert units', 'Convertir unidades'),
+    desc: L('Comprimento, peso, volume, temperatura, dados…', 'Length, weight, volume, temperature, data…', 'Longitud, peso, volumen, temperatura, datos…'),
     steps: [
       {
         id: 'dim',
@@ -213,6 +222,7 @@ export const WIZARDS: Wizard[] = [
     id: 'currency',
     icon: 'Coins',
     title: L('Converter moedas', 'Convert currencies', 'Convertir monedas'),
+    desc: L('Moedas e criptomoedas com cotação ao vivo', 'Currencies and crypto at live rates', 'Monedas y criptomonedas con cotización en vivo'),
     steps: [
       { id: 'n', q: L('Qual valor?', 'Which amount?', '¿Qué monto?'), input: 'number', def: () => '100' },
       { id: 'from', q: L('De qual moeda?', 'From which currency?', '¿De qué moneda?'), input: 'choice', options: () => ['USD', 'EUR', 'BRL', 'GBP', 'ARS', 'JPY', 'BTC'].map((c) => ({ value: c, label: c })) },
@@ -224,6 +234,7 @@ export const WIZARDS: Wizard[] = [
     id: 'trip',
     icon: 'Fuel',
     title: L('Combustível da viagem', 'Trip fuel cost', 'Combustible del viaje'),
+    desc: L('Litros e custo do combustível da viagem', 'Liters and fuel cost of a trip', 'Litros y costo del combustible del viaje'),
     steps: [
       { id: 'dist', q: L('Distância (km)', 'Distance (km)', 'Distancia (km)'), input: 'number', placeholder: L('450', '450', '450') },
       { id: 'cons', q: L('Consumo do carro (km por litro)', 'Car consumption (km per liter)', 'Consumo del auto (km por litro)'), input: 'number', placeholder: L('12', '12', '12') },
@@ -250,6 +261,7 @@ export const WIZARDS: Wizard[] = [
     id: 'budget',
     icon: 'Wallet',
     title: L('Orçamento 50/30/20', '50/30/20 budget', 'Presupuesto 50/30/20'),
+    desc: L('Divide a renda em essenciais, desejos e investimentos', 'Splits income into needs, wants and savings', 'Divide el ingreso en esenciales, deseos y ahorro'),
     steps: [{ id: 'income', q: L('Renda líquida mensal', 'Monthly net income', 'Ingreso neto mensual'), input: 'number', placeholder: L('6.000', '6,000', '6.000') }],
     build: (a, { lang, cur }) => {
       const R = v(lang, 'renda', 'income', 'ingreso');
@@ -266,6 +278,7 @@ export const WIZARDS: Wizard[] = [
     id: 'hourly',
     icon: 'Clock',
     title: L('Valor da hora (freelancer)', 'Hourly rate (freelancer)', 'Valor por hora (freelancer)'),
+    desc: L('Quanto cobrar por hora para atingir sua meta', 'How much to charge per hour to reach your goal', 'Cuánto cobrar por hora para alcanzar tu meta'),
     steps: [
       { id: 'goal', q: L('Quanto quer ganhar por mês?', 'Monthly income goal?', '¿Cuánto quieres ganar al mes?'), input: 'number' },
       { id: 'costs', q: L('Custos mensais (impostos, ferramentas…)', 'Monthly costs (taxes, tools…)', 'Costos mensuales (impuestos, herramientas…)'), input: 'number', def: () => '0' },

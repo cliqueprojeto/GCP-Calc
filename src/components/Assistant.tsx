@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChartPie, CornerDownLeft, Loader2, RotateCcw, Sigma, ListOrdered, MessageCircleQuestion, Calculator, X, Coins, MessageSquareText, ListChecks } from 'lucide-react';
 import { WIZARDS, type Wizard } from '../ai/wizards';
-import { nextStep, type AssistStep, type Turn } from '../ai/assist';
+import { isTransient, nextStep, orderedProviders, type AssistStep, type Turn } from '../ai/assist';
 import { evaluateLine, type DocState } from '../engine/evaluate';
 import { formatValue } from '../engine/value';
 import { currencySymbol } from '../engine/value';
@@ -23,6 +23,8 @@ interface Props {
   noteContext: string;
   hasValues: boolean;
   initialGoal?: string;
+  /** passos já obtidos (ex.: pelo comando /ia, quando a IA precisou perguntar algo) */
+  initialTurns?: Turn[];
   onInsert(lines: string[]): void;
   onAddChart(): void;
   onClose(): void;
@@ -34,11 +36,13 @@ function cloneState(st: DocState): DocState {
   return { vars: new Map(st.vars), funcs: new Map(st.funcs), lines: [...st.lines], group: [], prev: st.prev };
 }
 
-export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal, onInsert, onAddChart, onClose }: Props) {
+export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal, initialTurns, onInsert, onAddChart, onClose }: Props) {
   const t = useT();
   const lang = useLang();
   const settings = useData((s) => s.settings);
-  const provider = settings.ai.providers.find((p) => p.id === settings.ai.active) ?? settings.ai.providers[0];
+  const providers = orderedProviders(settings.ai.providers, settings.ai.active);
+  const provider = providers[0];
+  const [fallback, setFallback] = useState('');
   const [mode, setMode] = useState<Mode>({ kind: 'start' });
   const [input, setInput] = useState('');
   const abort = useRef<AbortController | null>(null);
@@ -52,18 +56,20 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
     const ac = new AbortController();
     abort.current = ac;
     setMode({ kind: 'ai', goal, turns, loading: true });
+    setFallback('');
     try {
-      const step = await nextStep(provider, { lang, decimal: ctx.decimal, baseCurrency: settings.baseCurrency, goal, noteContext, turns }, ac.signal);
+      const step = await nextStep(providers, { lang, decimal: ctx.decimal, baseCurrency: settings.baseCurrency, goal, noteContext, turns }, ac.signal, setFallback);
       if (ac.signal.aborted) return;
       setMode({ kind: 'ai', goal, turns: [...turns, { step }], loading: false });
     } catch (e) {
       if (ac.signal.aborted) return;
-      setMode({ kind: 'ai', goal, turns, loading: false, error: String((e as Error)?.message || e) });
+      setMode({ kind: 'ai', goal, turns, loading: false, error: isTransient(e) ? t('assist.busy') : String((e as Error)?.message || e) });
     }
   };
 
   useEffect(() => {
-    if (initialGoal && provider) askAi(initialGoal, []);
+    if (initialGoal && initialTurns?.length) setMode({ kind: 'ai', goal: initialGoal, turns: initialTurns, loading: false });
+    else if (initialGoal && provider) askAi(initialGoal, []);
     return () => abort.current?.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -126,49 +132,78 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
   );
 
   if (mode.kind === 'start') {
+    const examples = [t('assist.ex1'), t('assist.ex2'), t('assist.ex3'), t('assist.ex4')];
     return (
       <div className="assistant">
         {head}
-        {provider ? (
-          <form
-            className="as-ask"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (input.trim()) askAi(input.trim(), []);
-              setInput('');
-            }}
-          >
-            <MessageCircleQuestion size={16} />
-            <input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('assist.askPlaceholder')} />
-            <button className="btn primary sm" type="submit" disabled={!input.trim()}>
-              <CornerDownLeft size={14} />
-            </button>
-          </form>
-        ) : (
-          <div className="as-noai">
-            <Calculator size={14} /> {t('assist.noAi')}{' '}
-            <button className="link" onClick={() => useUi.getState().go({ kind: 'settings', section: 'ai' })}>
-              {t('assist.configureAi')}
-            </button>
+        <p className="as-intro">{t('assist.intro')}</p>
+        <div className="as-section">
+          <div className="as-label">
+            <MessageCircleQuestion size={13} /> {t('assist.askTitle')}
+          </div>
+          {provider ? (
+            <>
+              <form
+                className="as-ask"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (input.trim()) askAi(input.trim(), []);
+                  setInput('');
+                }}
+              >
+                <MessageCircleQuestion size={16} />
+                <input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('assist.askPlaceholder')} />
+                <button className="btn primary sm" type="submit" disabled={!input.trim()}>
+                  <CornerDownLeft size={14} />
+                </button>
+              </form>
+              <div className="as-examples">
+                <span>{t('assist.examples')}</span>
+                {examples.map((ex) => (
+                  <button key={ex} className="chip ghost" onClick={() => askAi(ex, [])}>
+                    {ex}
+                  </button>
+                ))}
+              </div>
+              <div className="as-tip">
+                <code>/ia</code> {t('assist.tipInline')}
+              </div>
+            </>
+          ) : (
+            <div className="as-noai">
+              <Calculator size={14} /> {t('assist.noAi')}{' '}
+              <button className="link" onClick={() => useUi.getState().go({ kind: 'settings', section: 'ai' })}>
+                {t('assist.configureAi')}
+              </button>
+            </div>
+          )}
+        </div>
+        {quick.length > 0 && (
+          <div className="as-section">
+            <div className="as-label">{t('assist.quickTitle')}</div>
+            <div className="as-chips">
+              {quick.map((q) => (
+                <button key={q.id} className="chip" onClick={q.run}>
+                  {q.icon} {q.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
-        {quick.length > 0 && (
-          <div className="as-chips">
-            {quick.map((q) => (
-              <button key={q.id} className="chip" onClick={q.run}>
-                {q.icon} {q.label}
+        <div className="as-section">
+          <div className="as-label">{t('assist.guided')}</div>
+          <p className="as-hint">{t('assist.guidedHint')}</p>
+          <div className="as-wizards">
+            {WIZARDS.map((w) => (
+              <button key={w.id} className="as-wiz" onClick={() => setMode({ kind: 'wizard', w, i: 0, answers: {} })}>
+                <NoteIcon name={w.icon} size={18} />
+                <span className="as-wiz-text">
+                  <b>{w.title[lang]}</b>
+                  <small>{w.desc[lang]}</small>
+                </span>
               </button>
             ))}
           </div>
-        )}
-        <div className="as-label">{t('assist.guided')}</div>
-        <div className="as-wizards">
-          {WIZARDS.map((w) => (
-            <button key={w.id} className="as-wiz" onClick={() => setMode({ kind: 'wizard', w, i: 0, answers: {} })}>
-              <NoteIcon name={w.icon} size={18} />
-              <span>{w.title[lang]}</span>
-            </button>
-          ))}
         </div>
       </div>
     );
@@ -282,7 +317,7 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
       </div>
       {mode.loading && (
         <div className="as-loading">
-          <Loader2 size={16} className="spin" /> {t('assist.thinking')}
+          <Loader2 size={16} className="spin" /> {fallback ? t('assist.fallback', { model: fallback }) : t('assist.thinking')}
         </div>
       )}
       {mode.error && (
