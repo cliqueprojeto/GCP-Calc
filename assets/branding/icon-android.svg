@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- GCP-Calc — ícone do app: folha de nota com cálculos e selo de calculadora, sobre fundo branco (série GCP) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef2f8"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset=".5" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="eq" gradientUnits="userSpaceOnUse" x1="430" y1="0" x2="540" y2="0">
+      <stop offset="0" stop-color="#06b6d4"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f1b3d" flood-opacity=".16"/>
+    </filter>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#3b2bb8" flood-opacity=".35"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#ffffff"/>
+
+  <g transform="translate(512 512) scale(0.92) translate(-540 -505)">
+    <!-- folha de nota com canto dobrado -->
+    <g filter="url(#shadow)">
+      <path d="M290 186 H550 L682 318 V706 Q682 766 622 766 H290 Q230 766 230 706 V246 Q230 186 290 186 Z" fill="#ffffff" stroke="#0f1b3d" stroke-width="32" stroke-linejoin="round"/>
+      <path d="M550 186 V270 Q550 318 598 318 H682" fill="#e6edf7" stroke="#0f1b3d" stroke-width="32" stroke-linejoin="round"/>
+      <!-- linhas de cálculo: texto à esquerda, resultado à direita -->
+      <path d="M306 392 H420" stroke="#0f1b3d" stroke-width="28" stroke-linecap="round"/>
+      <path d="M470 392 H530" stroke="url(#eq)" stroke-width="28" stroke-linecap="round"/>
+      <path d="M306 470 H392" stroke="#0f1b3d" stroke-width="28" stroke-linecap="round" opacity=".55"/>
+      <path d="M440 470 H530" stroke="url(#eq)" stroke-width="28" stroke-linecap="round" opacity=".8"/>
+      <path d="M306 548 H372" stroke="#0f1b3d" stroke-width="28" stroke-linecap="round" opacity=".55"/>
+      <!-- sinal de igual -->
+      <path d="M306 636 H400 M306 680 H400" stroke="#0f1b3d" stroke-width="24" stroke-linecap="round"/>
+    </g>
+
+    <!-- selo de calculadora -->
+    <g filter="url(#glow)">
+      <rect x="512" y="500" width="344" height="344" rx="92" fill="url(#badge)" stroke="#ffffff" stroke-width="18"/>
+      <rect x="530" y="518" width="308" height="150" rx="74" fill="url(#shine)"/>
+      <!-- teclas: + − × = -->
+      <g stroke="#ffffff" stroke-width="26" stroke-linecap="round">
+        <path d="M604 602 H664 M634 572 V632"/>
+        <path d="M704 602 H764"/>
+        <path d="M610 696 L658 744 M658 696 L610 744"/>
+        <path d="M704 704 H764 M704 738 H764"/>
+      </g>
+    </g>
+    <!-- centelha -->
+    <path d="M840 420 l14 34 34 14 -34 14 -14 34 -14 -34 -34 -14 34 -14 z" fill="#f5b544" stroke="#ffffff" stroke-width="8" stroke-linejoin="round"/>
+  </g>
+</svg>

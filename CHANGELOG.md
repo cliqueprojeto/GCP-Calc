@@ -1,0 +1,32 @@
+# Changelog
+
+## 1.0.0
+
+Calculadora em notas para Linux, Windows, macOS e Android.
+
+### Destaques
+
+- Cálculos em linguagem natural em **português, inglês e espanhol**, com separadores decimais do seu idioma.
+- **Moedas e criptomoedas ao vivo**, atualizadas ao abrir o app e quando você pedir, e **tags personalizadas** (apelidos e moedas próprias).
+- **Conversor de unidades** com 14 grandezas e unidades compostas.
+- Porcentagens, variáveis, rótulos, funções próprias, `total`/`média`/`prev`, datas, financiamento (`pmt`), investimentos (`fv`), hexadecimal e binário.
+- Notas com **nome, cor e ícone** (1.500+ ícones e emojis), pastas, fixadas, lixeira e busca rápida (`Ctrl+K`).
+- **Elementos gráficos**: gráficos dos próprios cálculos, metas com progresso, painel de cotações, destaques, imagens, adesivos, títulos e divisores.
+- **Assistente passo a passo** com botões contextuais — 11 assistentes offline e IA opcional (Claude, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama…).
+- Temas premium, **paletas de editores de código no estilo Omarchy** e **cores da sintaxe configuráveis** por tema.
+- **Backup e sincronização criptografados no Google Drive** e backup em arquivo `.gcpcalc`.
+- **Atualizações direto das releases do GitHub**, com conferência de SHA-256.
+
+### Downloads
+
+| Sistema | Arquivo |
+|---|---|
+| Debian/Ubuntu | `gcp-calc_1.0.0_amd64.deb` |
+| Fedora/openSUSE | `gcp-calc-1.0.0-1.x86_64.rpm` |
+| Arch/BigLinux/Omarchy | `gcp-calc-bin-1.0.0-1-x86_64.pkg.tar.zst` |
+| Windows | `GCP-Calc-1.0.0-Windows-x64-Setup.exe` |
+| macOS Apple Silicon | `GCP-Calc-1.0.0-macOS-arm64.dmg` |
+| macOS Intel | `GCP-Calc-1.0.0-macOS-x86_64.dmg` |
+| Android | `GCP-Calc-1.0.0-Android.apk` |
+
+Desenvolvido por **Bruno Albertini** | [Gestão Cultural Pro](https://gestaoculturalpro.com.br)

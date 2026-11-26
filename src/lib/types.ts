@@ -1,0 +1,138 @@
+import type { CurrencyTag } from '../engine/value';
+
+export type Lang = 'pt' | 'en' | 'es';
+
+export type ChartKind = 'bar' | 'pie' | 'donut' | 'line' | 'hbar';
+
+export type Block =
+  | { id: string; type: 'calc'; text: string }
+  | { id: string; type: 'heading'; text: string; level: 1 | 2 | 3 }
+  | { id: string; type: 'image'; src: string; caption?: string; width?: number }
+  | { id: string; type: 'chart'; kind: ChartKind; source: string; title?: string }
+  | { id: string; type: 'divider'; style: 'line' | 'dots' | 'wave' | 'gradient' }
+  | { id: string; type: 'callout'; text: string; color: string; icon: string }
+  | { id: string; type: 'sticker'; emoji: string; size: number; align: 'left' | 'center' | 'right' }
+  | { id: string; type: 'progress'; label: string; value: string; goal: string; color: string }
+  | { id: string; type: 'ticker'; codes: string[] };
+
+export type BlockType = Block['type'];
+
+export interface Note {
+  id: string;
+  title: string;
+  icon: string;
+  color: string;
+  folderId?: string;
+  pinned?: boolean;
+  created: number;
+  updated: number;
+  /** marca de exclusão (lixeira); some de vez depois de 30 dias */
+  deleted?: number;
+  /** esvaziada de vez (só a marca de exclusão permanece) */
+  purged?: boolean;
+  blocks: Block[];
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  updated: number;
+  deleted?: number;
+  collapsed?: boolean;
+}
+
+export interface Tag extends CurrencyTag {
+  updated: number;
+  deleted?: number;
+}
+
+export type AiProviderId = 'anthropic' | 'openai' | 'gemini' | 'mistral' | 'groq' | 'deepseek' | 'xai' | 'openrouter' | 'ollama' | 'custom';
+
+export interface AiProvider {
+  id: string;
+  kind: AiProviderId;
+  name: string;
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+  models?: string[];
+  checkedAt?: number;
+}
+
+export interface CloudAccount {
+  provider: 'gdrive';
+  email?: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+  connectedAt: number;
+}
+
+export type UpdateFrequency = 'startup' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'never';
+
+export interface CustomTheme {
+  dark: boolean;
+  bg: string;
+  panel: string;
+  text: string;
+  accent: string;
+  accent2: string;
+}
+
+export interface Settings {
+  lang: 'auto' | Lang;
+  theme: string;
+  customTheme: CustomTheme;
+  /** cores da sintaxe personalizadas, por tema (id do tema → tipo → cor) */
+  synColors: Record<string, Record<string, string>>;
+  font: string;
+  fontSize: number;
+  decimal: 'auto' | 'comma' | 'dot';
+  grouping: boolean;
+  precision: number;
+  currencyPosition: 'auto' | 'before' | 'after';
+  dollar: string;
+  baseCurrency: string;
+  favoriteCurrencies: string[];
+  angle: 'deg' | 'rad';
+  dateOrder: 'auto' | 'dmy' | 'mdy';
+  ratesOnOpen: boolean;
+  ratesMaxAge: number;
+  lineNumbers: boolean;
+  keypad: 'auto' | 'on' | 'off';
+  resultColors: boolean;
+  ai: { providers: AiProvider[]; active?: string; inline: boolean };
+  cloud: {
+    accounts: CloudAccount[];
+    googleClientId?: string;
+    googleClientSecret?: string;
+    /** frase-senha da criptografia (fica só neste aparelho) */
+    passphrase?: string;
+    autoSync: boolean;
+    syncDelay: number;
+    autoBackup: 'off' | 'daily' | 'weekly';
+    keep: number;
+    lastBackup?: number;
+    lastSync?: number;
+  };
+  updateFrequency: UpdateFrequency;
+  lastUpdateCheck: number;
+  onboarded?: boolean;
+}
+
+export interface DataDoc {
+  version: 1;
+  notes: Note[];
+  folders: Folder[];
+  tags: Tag[];
+}
+
+export interface RatesDoc {
+  /** unidades da moeda por 1 USD */
+  rates: Record<string, number>;
+  fetched: number;
+  source: string;
+  cryptoFetched?: number;
+}
