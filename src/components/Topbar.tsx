@@ -1,4 +1,4 @@
-import { Cloud, CloudOff, Heart, Menu as MenuIcon, Moon, RefreshCw, Sun, Wand2, CloudAlert, Loader2, Download } from 'lucide-react';
+import { Cloud, CloudOff, Heart, Menu as MenuIcon, Moon, RefreshCw, Sun, ListOrdered, CloudAlert, Loader2, Download } from 'lucide-react';
 import { useData } from '../store/data';
 import { useUi } from '../store/ui';
 import { useRates } from '../lib/rates';
@@ -44,7 +44,7 @@ export function Topbar() {
       </button>
       {view.kind === 'note' && (
         <button className="tb-pill ai" onClick={() => set({ assistant: useUi.getState().assistant ? undefined : { noteId: view.id } })}>
-          <Wand2 size={14} /> <span className="hide-sm">{t('assist.title')}</span>
+          <ListOrdered size={14} /> <span className="hide-sm">{t('assist.title')}</span>
         </button>
       )}
       <div className="lang-switch">

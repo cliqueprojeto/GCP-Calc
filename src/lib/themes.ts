@@ -1,6 +1,6 @@
 /**
  * Temas: cores da interface e da sintaxe dos cálculos.
- * "premium" ganha fundo com brilho em gradiente e painéis de vidro.
+ * "premium" ganha painéis translúcidos; cores de destaque sempre sólidas.
  */
 import type { CustomTheme } from './types';
 
@@ -70,12 +70,12 @@ function theme(id: string, name: string, dark: boolean, group: Theme['group'], c
       '--accent': c.accent,
       '--accent-2': c.accent2,
       '--accent-soft': `color-mix(in srgb, ${c.accent} 16%, transparent)`,
-      '--accent-grad': `linear-gradient(135deg, ${c.accent}, ${c.accent2})`,
+      '--accent-grad': c.accent,
       '--danger': dark ? '#f87171' : '#c81e1e',
       '--ok': dark ? '#4ade80' : '#15803d',
       '--hover': dark ? 'rgba(255,255,255,0.06)' : 'rgba(15,20,40,0.05)',
       '--shadow': dark ? '0 18px 50px rgba(0,0,0,0.45)' : '0 18px 50px rgba(30,30,70,0.14)',
-      '--glow': c.glow ?? `radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, ${c.accent} 22%, transparent), transparent 60%), radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, ${c.accent2} 16%, transparent), transparent 60%)`,
+      '--glow': 'none',
     },
     syn,
   };

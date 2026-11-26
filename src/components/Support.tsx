@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Copy, CreditCard, ExternalLink, Heart, Sparkles } from 'lucide-react';
+import { Copy, CreditCard, ExternalLink, Heart } from 'lucide-react';
 import { Modal } from './ui';
 import { Logo } from './Logo';
 import { copyText, openUrl } from '../lib/platform';
@@ -24,7 +24,7 @@ export function Support() {
   return (
     <Modal open={support} onClose={() => set({ support: false })} title={null as unknown as string} wide className="support">
       <div className="sup-eyebrow">
-        <Sparkles size={14} /> {t('support.eyebrow')}
+        <Heart size={13} /> {t('support.eyebrow')}
       </div>
       <h2 className="sup-title">{t('support.title')}</h2>
       <p className="sup-sub">{t('support.subtitle')}</p>

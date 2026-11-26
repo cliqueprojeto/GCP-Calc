@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1
+
+### Visual mais limpo
+
+- Novo ícone do aplicativo em cores sólidas, sem gradiente e sem a estrela de brilho.
+- Botões, barras de progresso, divisores, selos e fundos agora usam cores sólidas — sem gradientes fortes nem brilhos de fundo.
+- Ícones de brilho e de varinha mágica substituídos por ícones neutros (calculadora, lista de passos, lâmpada). A nota de boas-vindas já instalada é ajustada automaticamente.
+
+### Cálculos
+
+- Resultados com até 4 casas decimais por padrão (ex.: `5 km em milhas` → `3,1069 mi`). Ajustável em Configurações → Cálculo.
+
 ## 1.0.0
 
 Calculadora em notas para Linux, Windows, macOS e Android.

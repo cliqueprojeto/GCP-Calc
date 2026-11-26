@@ -1,6 +1,6 @@
 /** Páginas auxiliares: início, modelos, lixeira, busca rápida e teclado numérico. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Calculator, Clock, CornerDownLeft, Delete, LayoutTemplate, Plus, RotateCcw, Search, Settings, Trash2, Wand2, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, Calculator, Clock, CornerDownLeft, Delete, LayoutTemplate, Plus, RotateCcw, Search, Settings, Trash2, ListOrdered, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData, visibleNotes } from '../store/data';
 import { useUi } from '../store/ui';
 import { NoteIcon } from '../lib/icons';
@@ -51,12 +51,12 @@ export function Home() {
         <button
           className="btn"
           onClick={() => {
-            const id = createNote({ title: t('assist.title'), icon: 'Wand2' });
+            const id = createNote({ title: t('assist.title'), icon: 'ListOrdered' });
             go({ kind: 'note', id });
             set({ assistant: { noteId: id } });
           }}
         >
-          <Wand2 size={16} /> {t('home.startAssistant')}
+          <ListOrdered size={16} /> {t('home.startAssistant')}
         </button>
         <button className="btn" onClick={() => go({ kind: 'templates' })}>
           <LayoutTemplate size={16} /> {t('sidebar.templates')}

@@ -4,7 +4,7 @@
  * Funciona offline com assistentes prontos e, com IA configurada, para qualquer pedido.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChartPie, CornerDownLeft, Loader2, RotateCcw, Sigma, Sparkles, Wand2, X, Coins, MessageSquareText, ListChecks } from 'lucide-react';
+import { ArrowLeft, Check, ChartPie, CornerDownLeft, Loader2, RotateCcw, Sigma, ListOrdered, MessageCircleQuestion, Calculator, X, Coins, MessageSquareText, ListChecks } from 'lucide-react';
 import { WIZARDS, type Wizard } from '../ai/wizards';
 import { nextStep, type AssistStep, type Turn } from '../ai/assist';
 import { evaluateLine, type DocState } from '../engine/evaluate';
@@ -110,7 +110,7 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
   const head = (
     <div className="as-head">
       <div className="as-title">
-        <Wand2 size={16} /> {t('assist.title')}
+        <ListOrdered size={16} /> {t('assist.title')}
       </div>
       <div className="as-head-actions">
         {mode.kind !== 'start' && (
@@ -138,7 +138,7 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
               setInput('');
             }}
           >
-            <Sparkles size={16} />
+            <MessageCircleQuestion size={16} />
             <input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('assist.askPlaceholder')} />
             <button className="btn primary sm" type="submit" disabled={!input.trim()}>
               <CornerDownLeft size={14} />
@@ -146,7 +146,7 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
           </form>
         ) : (
           <div className="as-noai">
-            <Sparkles size={14} /> {t('assist.noAi')}{' '}
+            <Calculator size={14} /> {t('assist.noAi')}{' '}
             <button className="link" onClick={() => useUi.getState().go({ kind: 'settings', section: 'ai' })}>
               {t('assist.configureAi')}
             </button>
@@ -269,7 +269,7 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
     <div className="assistant">
       {head}
       <div className="as-goal">
-        <Sparkles size={14} /> {mode.goal}
+        <MessageCircleQuestion size={14} /> {mode.goal}
       </div>
       <div className="as-trail">
         {mode.turns
@@ -336,7 +336,7 @@ export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal,
             <div className="as-chips">
               {step.followups.map((f) => (
                 <button key={f} className="chip" onClick={() => answerAi(f)}>
-                  <Sparkles size={13} /> {f}
+                  <ArrowLeft size={13} style={{ transform: 'rotate(180deg)' }} /> {f}
                 </button>
               ))}
             </div>

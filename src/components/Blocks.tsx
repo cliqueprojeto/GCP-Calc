@@ -162,7 +162,7 @@ export function ProgressBlock({ block, value, goal, fmt, onChange }: { block: Ex
         </span>
       </div>
       <div className="prog-track">
-        <div className="prog-fill" style={{ width: `${pct * 100}%`, background: `linear-gradient(90deg, ${block.color}, color-mix(in srgb, ${block.color} 55%, var(--accent-2)))` }} />
+        <div className="prog-fill" style={{ width: `${pct * 100}%`, background: block.color }} />
       </div>
       <div className="prog-exprs">
         <label>

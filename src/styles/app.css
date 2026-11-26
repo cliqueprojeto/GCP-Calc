@@ -33,7 +33,7 @@ body {
   overflow: hidden;
 }
 html.premium body {
-  background: var(--glow), var(--bg);
+  background: var(--bg);
 }
 button,
 input,
@@ -152,7 +152,6 @@ button:disabled {
   background: var(--accent-grad);
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .btn.primary:hover:not(:disabled) {
   filter: brightness(1.08);
@@ -903,7 +902,7 @@ html.premium .block-wrap {
   border-radius: 4px;
 }
 .src-line.active {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .calc-input {
   position: absolute;
@@ -1463,11 +1462,8 @@ html.premium .block-wrap {
 .assistant {
   border-radius: var(--radius);
   border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
-  background:
-    radial-gradient(500px 200px at 100% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent),
-    color-mix(in srgb, var(--panel) 92%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
   padding: 14px 16px 16px;
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--accent) 16%, transparent);
   animation: pop 0.2s ease-out;
 }
 @keyframes pop {
@@ -1487,10 +1483,7 @@ html.premium .block-wrap {
   align-items: center;
   gap: 8px;
   font-weight: 800;
-  background: var(--accent-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 .as-title svg {
   color: var(--accent);
@@ -1977,7 +1970,7 @@ html.premium .block-wrap {
   border-radius: 8px;
 }
 .btn.grad {
-  background: linear-gradient(90deg, #a78bfa, #f472b6);
+  background: var(--accent);
 }
 .sup-toggle {
   color: #ec4899;
@@ -2065,10 +2058,7 @@ html.premium .block-wrap {
   padding: 26px;
   border-radius: 22px;
   border: 1px solid var(--border);
-  background:
-    radial-gradient(700px 240px at 90% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent),
-    radial-gradient(500px 200px at 0% 100%, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent),
-    var(--panel);
+  background: var(--panel);
 }
 .home-hero .logo {
   border-radius: 18px;

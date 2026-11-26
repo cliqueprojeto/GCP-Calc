@@ -21,7 +21,7 @@ import {
   Trash2,
   TrendingUp,
   MessageSquareQuote,
-  Wand2,
+  ListOrdered,
   Sigma,
 } from 'lucide-react';
 import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState, type LineResult } from '../engine/evaluate';
@@ -59,11 +59,11 @@ export function newBlock(type: BlockType, settingsBase = 'BRL', favs: string[] =
     case 'chart':
       return { id, type, kind: 'bar', source: '' };
     case 'divider':
-      return { id, type, style: 'gradient' };
+      return { id, type, style: 'line' };
     case 'callout':
       return { id, type, text: '', color: '#8b5cf6', icon: 'Lightbulb' };
     case 'sticker':
-      return { id, type, emoji: '✨', size: 56, align: 'center' };
+      return { id, type, emoji: 'Star', size: 56, align: 'center' };
     case 'progress':
       return { id, type, label: '', value: '', goal: '', color: '#10b981' };
     case 'ticker':
@@ -254,7 +254,7 @@ export function NoteView({ note }: { note: Note }) {
             </MenuItem>
           ))}
           <MenuItem
-            icon={<Wand2 size={15} />}
+            icon={<ListOrdered size={15} />}
             onClick={() => {
               ui.set({ assistant: { noteId: note.id, afterBlock: after } });
               close();
@@ -290,7 +290,7 @@ export function NoteView({ note }: { note: Note }) {
             {note.pinned ? <PinOff size={17} /> : <Pin size={17} />}
           </button>
           <button className="icon-btn accent" title={t('assist.title')} onClick={() => ui.set({ assistant: assistantHere ? undefined : { noteId: note.id } })}>
-            <Wand2 size={17} />
+            <ListOrdered size={17} />
           </button>
           <Menu
             button={(toggle) => (

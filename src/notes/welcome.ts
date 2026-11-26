@@ -13,7 +13,7 @@ const WELCOME: Record<Lang, { title: string; blocks: Block[] }> = {
   pt: {
     title: 'Bem-vindo ao GCP-Calc',
     blocks: [
-      { id: uid(), type: 'callout', icon: 'Sparkles', color: '#8b5cf6', text: 'Escreva do jeito que você pensa. Os resultados aparecem à direita, linha a linha. Clique num resultado para copiar.' },
+      { id: uid(), type: 'callout', icon: 'Lightbulb', color: '#8b5cf6', text: 'Escreva do jeito que você pensa. Os resultados aparecem à direita, linha a linha. Clique num resultado para copiar.' },
       calc(
         [
           '# O básico',
@@ -57,7 +57,7 @@ const WELCOME: Record<Lang, { title: string; blocks: Block[] }> = {
           'parcela = pmt(1,2%; 24; R$ 15.000)',
           '255 em hex',
           '',
-          '// Dica: Ctrl+K abre a busca rápida e ✦ Assistente guia cálculos passo a passo.',
+          '// Dica: Ctrl+K abre a busca rápida e o Assistente guia cálculos passo a passo.',
         ].join('\n'),
       ),
     ],
@@ -65,7 +65,7 @@ const WELCOME: Record<Lang, { title: string; blocks: Block[] }> = {
   en: {
     title: 'Welcome to GCP-Calc',
     blocks: [
-      { id: uid(), type: 'callout', icon: 'Sparkles', color: '#8b5cf6', text: 'Write the way you think. Results appear on the right, line by line. Click a result to copy it.' },
+      { id: uid(), type: 'callout', icon: 'Lightbulb', color: '#8b5cf6', text: 'Write the way you think. Results appear on the right, line by line. Click a result to copy it.' },
       calc(['# The basics', 'Rent: $1,850', 'Utilities: $320', 'Internet: $59.90', 'total', '', '# Percentages', '$250 - 15%', '20% of 1,200', '45 as % of 180', '', '# Variables', 'salary = $7,500', 'expenses = $4,230', 'left = salary - expenses', 'left as % of salary'].join('\n')),
       { id: uid(), type: 'chart', kind: 'donut', source: '', title: 'Where the money goes' },
       calc(
@@ -90,7 +90,7 @@ const WELCOME: Record<Lang, { title: string; blocks: Block[] }> = {
           'payment = pmt(1.2%; 24; $15,000)',
           '255 in hex',
           '',
-          '// Tip: Ctrl+K opens quick search and ✦ Assistant guides calculations step by step.',
+          '// Tip: Ctrl+K opens quick search and the Assistant guides calculations step by step.',
         ].join('\n'),
       ),
     ],
@@ -98,7 +98,7 @@ const WELCOME: Record<Lang, { title: string; blocks: Block[] }> = {
   es: {
     title: 'Bienvenido a GCP-Calc',
     blocks: [
-      { id: uid(), type: 'callout', icon: 'Sparkles', color: '#8b5cf6', text: 'Escribe como piensas. Los resultados aparecen a la derecha, línea por línea. Haz clic en un resultado para copiarlo.' },
+      { id: uid(), type: 'callout', icon: 'Lightbulb', color: '#8b5cf6', text: 'Escribe como piensas. Los resultados aparecen a la derecha, línea por línea. Haz clic en un resultado para copiarlo.' },
       calc(['# Lo básico', 'Alquiler: € 950', 'Luz y agua: € 120', 'Internet: € 35,90', 'total', '', '# Porcentajes', '€ 250 - 15%', '20% de 1.200', '45 en % de 180', '', '# Variables', 'sueldo = € 2.500', 'gastos = € 1.430', 'ahorro = sueldo - gastos', 'ahorro en % de sueldo'].join('\n')),
       { id: uid(), type: 'chart', kind: 'donut', source: '', title: 'A dónde va el dinero' },
       calc(
@@ -122,7 +122,7 @@ const WELCOME: Record<Lang, { title: string; blocks: Block[] }> = {
           'cuota = pmt(1,2%; 24; € 15.000)',
           '255 en hex',
           '',
-          '// Consejo: Ctrl+K abre la búsqueda rápida y ✦ Asistente guía los cálculos paso a paso.',
+          '// Consejo: Ctrl+K abre la búsqueda rápida y el Asistente guía los cálculos paso a paso.',
         ].join('\n'),
       ),
     ],
@@ -136,5 +136,5 @@ export function welcomeNotes(l: 'auto' | Lang): Note[] {
   const blocks = w.blocks.map((b) => ({ ...b }));
   const src = blocks.find((b) => b.type === 'calc')!;
   for (const b of blocks) if (b.type === 'chart') b.source = src.id;
-  return [{ id: uid(), title: w.title, icon: 'Sparkles', color: '#8b5cf6', pinned: true, created: t, updated: t, blocks }];
+  return [{ id: uid(), title: w.title, icon: 'Calculator', color: '#8b5cf6', pinned: true, created: t, updated: t, blocks }];
 }

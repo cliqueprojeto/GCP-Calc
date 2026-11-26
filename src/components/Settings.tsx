@@ -21,7 +21,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Sparkles,
+  Info as InfoIcon,
   Tags,
   Trash2,
   Type,
@@ -69,7 +69,7 @@ export function SettingsView({ initial }: { initial?: string }) {
   return (
     <div className="page settings">
       <div className="eyebrow">
-        <Sparkles size={13} /> GCP-CALC
+        GCP-CALC
       </div>
       <h1>{t('settings.title')}</h1>
       <p className="page-sub">{t('settings.subtitle')}</p>
@@ -165,7 +165,7 @@ function General() {
             <span className="tc-name">{t('theme.system')}</span>
           </button>
           <button className={`theme-chip ${settings.theme === 'custom' ? 'on' : ''}`} onClick={() => setSettings({ theme: 'custom' })}>
-            <span className="tc-swatch" style={{ background: `linear-gradient(135deg, ${settings.customTheme.accent}, ${settings.customTheme.accent2})` }} />
+            <span className="tc-swatch" style={{ background: settings.customTheme.accent }} />
             <span className="tc-name">{t('theme.custom')}</span>
           </button>
         </div>
@@ -558,7 +558,7 @@ function AiSettings() {
           );
         })}
       </Card>
-      <Card icon={<Sparkles size={18} />} title={t('ai.howTitle')} subtitle={t('ai.howText')} />
+      <Card icon={<InfoIcon size={18} />} title={t('ai.howTitle')} subtitle={t('ai.howText')} />
     </>
   );
 }

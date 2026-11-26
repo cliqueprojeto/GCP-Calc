@@ -97,7 +97,13 @@ export const useData = create<DataState>((set, get) => ({
     s.ai = { ...DEFAULT_SETTINGS.ai, ...(settings?.ai || {}) };
     s.cloud = { ...DEFAULT_SETTINGS.cloud, ...(settings?.cloud || {}) };
     s.customTheme = { ...DEFAULT_SETTINGS.customTheme, ...(settings?.customTheme || {}) };
-    const notes = doc?.notes ?? welcomeNotes(s.lang);
+    // versões antigas: troca o ícone de "brilho" da nota de boas-vindas por ícones neutros
+    const WELCOME_TITLES = ['Bem-vindo ao GCP-Calc', 'Welcome to GCP-Calc', 'Bienvenido a GCP-Calc'];
+    const notes = (doc?.notes ?? welcomeNotes(s.lang)).map((n) =>
+      WELCOME_TITLES.includes(n.title) && n.icon === 'Sparkles'
+        ? { ...n, icon: 'Calculator', blocks: n.blocks.map((b) => (b.type === 'callout' && b.icon === 'Sparkles' ? { ...b, icon: 'Lightbulb' } : b)) }
+        : n,
+    );
     // o que está na lixeira há mais de 30 dias é esvaziado (fica só a marca de exclusão)
     const cutoff = now() - 30 * 86400_000;
     set({
