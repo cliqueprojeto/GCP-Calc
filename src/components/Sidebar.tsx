@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, FolderPlus, Heart, Info, LayoutTemplate, Pin, Plus, Search, Settings as Cog, Trash2, Pencil, ExternalLink } from 'lucide-react';
+import { BellRing, ChevronDown, ChevronRight, FolderPlus, Heart, Info, LayoutTemplate, Pin, Plus, Search, Settings as Cog, Trash2, Pencil, ExternalLink } from 'lucide-react';
 import { useData, visibleNotes } from '../store/data';
 import { useUi } from '../store/ui';
 import { NoteIcon } from '../lib/icons';
@@ -7,6 +7,8 @@ import { APP_VERSION, openUrl } from '../lib/platform';
 import { useT } from '../i18n';
 import type { Note } from '../lib/types';
 import { Logo } from './Logo';
+import { useUnread } from './Reminders';
+import { statusOf } from '../lib/reminders';
 import { IconPicker } from './IconPicker';
 
 export const DEV_URL = 'https://gestaoculturalpro.com.br';
@@ -23,6 +25,8 @@ export function Sidebar() {
   const [editing, setEditing] = useState<string | null>(null);
   const [iconFolder, setIconFolder] = useState<string | null>(null);
   const trashCount = notes.filter((n) => n.deleted && !n.purged).length;
+  const unread = useUnread();
+  const overdue = useData((s) => s.reminders.filter((r) => !r.deleted && statusOf(r) === 'overdue').length);
 
   const list = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -149,6 +153,10 @@ export function Sidebar() {
       </nav>
 
       <div className="sb-bottom">
+        <button className={`nav-link ${view.kind === 'reminders' ? 'on' : ''}`} onClick={() => go({ kind: 'reminders' })}>
+          <BellRing size={16} /> {t('rem.page')}
+          {overdue > 0 ? <span className="badge bad">{overdue}</span> : unread > 0 ? <span className="badge accent">{unread}</span> : null}
+        </button>
         <button className={`nav-link ${view.kind === 'templates' ? 'on' : ''}`} onClick={() => go({ kind: 'templates' })}>
           <LayoutTemplate size={16} /> {t('sidebar.templates')}
         </button>

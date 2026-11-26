@@ -27,7 +27,7 @@ async function shot(name, { settings = {}, locale = 'pt-BR', viewport = { width:
         localStorage.clear();
         if (data) localStorage.setItem('gcp-calc:data', JSON.stringify(data));
         localStorage.setItem('gcp-calc:rates', JSON.stringify(rates));
-        localStorage.setItem('gcp-calc:settings', JSON.stringify({ ratesOnOpen: false, updateFrequency: 'never', ...settings }));
+        localStorage.setItem('gcp-calc:settings', JSON.stringify({ ratesOnOpen: false, updateFrequency: 'never', permissions: { asked: true }, ...settings }));
         sessionStorage.setItem('seeded', '1');
       }
     },
@@ -48,7 +48,7 @@ const scrollTo = (sel) => async (p) => {
   await p.evaluate((s) => document.querySelectorAll(s)[0]?.scrollIntoView({ block: 'start' }), sel);
 };
 const openSettings = (section) => async (p) => {
-  await p.click('.sb-bottom .nav-link:nth-child(3)');
+  await p.click('.sb-bottom >> text=Configurações');
   await p.waitForTimeout(300);
   if (section) await p.click(`.set-nav button:nth-child(${section})`);
 };
@@ -83,7 +83,7 @@ await shot('05-assistente-passos', {
     await p.evaluate(() => document.querySelector('.assistant')?.scrollIntoView({ block: 'center' }));
   },
 });
-await shot('06-modelos', { act: async (p) => p.click('.sb-bottom .nav-link:nth-child(1)') });
+await shot('06-modelos', { act: async (p) => p.click('.sb-bottom >> text=Modelos') });
 await shot('07-temas', { act: openSettings() });
 await shot('08-cores-sintaxe', {
   settings: { theme: 'tokyo-night' },
@@ -112,7 +112,7 @@ await shot('09-moedas-tags', {
 });
 await shot('10-ia', { settings: { ai: AI }, act: openSettings(4) });
 await shot('11-backup', { act: openSettings(5) });
-await shot('12-atualizacoes', { act: openSettings(6) });
+await shot('12-atualizacoes', { act: openSettings(7) });
 await shot('13-apoie', { act: async (p) => p.click('.topbar .heart') });
 await shot('14-claro-en', { locale: 'en-US', settings: { theme: 'cloud', lang: 'en' } });
 await shot('15-editor-es', { locale: 'es-ES', settings: { theme: 'catppuccin', lang: 'es' } });
@@ -128,6 +128,24 @@ const BUDGET = {
 };
 await shot('18-secoes', { data: BUDGET, act: async (p) => p.click('.sidebar >> text=Orçamento de novembro') });
 await shot('19-relatorio', { data: BUDGET, act: async (p) => (await p.click('.sidebar >> text=Orçamento de novembro'), await p.waitForTimeout(400), await p.locator('.bt-compare').scrollIntoViewIfNeeded()) });
+// lembretes e central de notificações
+const D0 = new Date(); D0.setHours(0, 0, 0, 0);
+const DAYMS = 86400000;
+const REM = {
+  version: 1, folders: [], tags: [],
+  notes: [note('casa', 'Contas da casa', '#Despesas\nAluguel: R$ 1.800,00 vence dia 5\nLuz: R$ 150,00 vence dia 10\nInternet: R$ 99,90 vence 28/11\nCondomínio: R$ 620,00')],
+  reminders: [
+    { id: 'r1', title: 'Aluguel', amount: 'R$ 1.800', due: D0.getTime() - 2 * DAYMS, repeat: 'monthly', alertDays: 2, noteId: 'casa', updated: T0 },
+    { id: 'r2', title: 'Cartão de crédito', amount: 'R$ 640,35', due: D0.getTime() + 3 * DAYMS, repeat: 'monthly', alertDays: 5, updated: T0 },
+    { id: 'r3', title: 'Luz', amount: 'R$ 150', due: D0.getTime() + 14 * DAYMS, repeat: 'monthly', alertDays: 3, noteId: 'casa', updated: T0 },
+    { id: 'r4', title: 'IPVA', amount: 'R$ 1.230', due: D0.getTime() + 24 * DAYMS, repeat: 'yearly', alertDays: 7, updated: T0 },
+    { id: 'r5', title: 'Plano de saúde', amount: 'R$ 512,40', due: D0.getTime() + 6 * DAYMS, repeat: 'monthly', alertDays: 2, updated: T0 },
+  ],
+};
+const PERM = { permissions: { asked: true } };
+await shot('20-lembretes', { data: REM, settings: PERM, act: async (p) => (await p.waitForTimeout(2200), await p.click('.sidebar >> text=Lembretes'), await p.waitForTimeout(500)) });
+await shot('21-notificacoes', { data: REM, settings: PERM, act: async (p) => (await p.waitForTimeout(2200), await p.click('.tb-inbox .icon-btn'), await p.waitForTimeout(400)) });
+await shot('22-android-voz', { device: devices['Pixel 7'], data: REM, settings: { ...PERM, theme: 'nebula' }, act: async (p) => (await p.waitForTimeout(2200), await p.click('.voice-fab'), await p.waitForTimeout(400)) });
 await shot('16-android', { device: devices['Pixel 7'], settings: { theme: 'nebula' } });
 await shot('17-android-teclado', {
   device: devices['Pixel 7'],

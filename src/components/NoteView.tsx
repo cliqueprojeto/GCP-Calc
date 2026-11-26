@@ -31,10 +31,14 @@ import {
   LayoutTemplate,
   ListTree,
   ChartColumnBig,
+  Mic,
 } from 'lucide-react';
 import { SaveTemplateModal } from './TemplateDialogs';
 import { OrganizeModal } from './OrganizeModal';
 import { CompareBlock } from './CompareBlock';
+import { AudioBlock } from './AudioBlock';
+import { VoiceCapture, type VoiceResult } from './VoiceCapture';
+import { dataUrlToBlob } from '../lib/voice';
 import { fold } from '../engine/units';
 import type { Suggestion } from './CalcEditor';
 import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState, type LineResult } from '../engine/evaluate';
@@ -78,6 +82,8 @@ export function newBlock(type: BlockType, settingsBase = 'BRL', favs: string[] =
       return { id, type, codes: favs.filter((c) => c !== settingsBase).slice(0, 4) };
     case 'compare':
       return { id, type, sources: ['self'], only: 'all' };
+    case 'audio':
+      return { id, type, src: '', mime: 'audio/webm', ms: 0, created: Date.now() };
   }
 }
 
@@ -110,7 +116,44 @@ export function NoteView({ note }: { note: Note }) {
   const ui = useUi();
   const [iconFor, setIconFor] = useState<null | 'note' | string>(null);
   const [savingTpl, setSavingTpl] = useState(false);
+  const reminders = useData((s) => s.reminders);
   const [organizing, setOrganizing] = useState<string | null>(null);
+  const [voice, setVoice] = useState<{ target?: string; audio?: Extract<Block, { type: 'audio' }>; blob?: Blob } | null>(null);
+  /** bloco de cálculo mais próximo (o anterior; se não houver, o primeiro) */
+  const nearestCalc = (id?: string) => {
+    const idx = id ? note.blocks.findIndex((x) => x.id === id) : note.blocks.length - 1;
+    const before = [...note.blocks.slice(0, idx + 1)].reverse().find((x) => x.type === 'calc');
+    return (before ?? note.blocks.find((x) => x.type === 'calc'))?.id;
+  };
+  const openVoice = async (target?: string, audio?: Extract<Block, { type: 'audio' }>) => {
+    if (audio?.src) setVoice({ target, audio, blob: await dataUrlToBlob(audio.src) });
+    else setVoice({ target: target ?? (ui.focusBlock && note.blocks.some((x) => x.id === ui.focusBlock && x.type === 'calc') ? ui.focusBlock : nearestCalc()) });
+  };
+  const onVoiceDone = (r: VoiceResult) => {
+    const n = useData.getState().notes.find((x) => x.id === note.id);
+    if (!n) return;
+    let target = n.blocks.find((x) => x.id === voice?.target && x.type === 'calc');
+    if (!target && r.lines.length) {
+      const nb = newBlock('calc');
+      insertAfter(voice?.audio?.id, nb);
+      target = nb;
+    }
+    if (target && target.type === 'calc' && r.lines.length) {
+      const cur = (useData.getState().notes.find((x) => x.id === note.id)?.blocks.find((x) => x.id === target!.id) as { text: string } | undefined)?.text ?? '';
+      const text = cur.replace(/\s+$/, '');
+      updateBlock(note.id, target.id, { text: (text ? text + '\n' : '') + r.lines.join('\n') });
+    }
+    if (voice?.audio && r.transcript) updateBlock(note.id, voice.audio.id, { transcript: r.transcript });
+    if (r.audio) {
+      const ab: Block = { id: uid(), type: 'audio', ...r.audio, created: Date.now() };
+      updateNote(note.id, (nn) => {
+        const i = target ? nn.blocks.findIndex((x) => x.id === target!.id) : nn.blocks.length - 1;
+        nn.blocks.splice(i + 1, 0, ab);
+      });
+    }
+    toast(t('voice.done'), 'ok');
+    if (r.organize && target) setTimeout(() => setOrganizing(target!.id), 50);
+  };
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const noteRef = useRef<HTMLDivElement>(null);
 
@@ -458,6 +501,18 @@ export function NoteView({ note }: { note: Note }) {
                   autoFocus={lastAdded === b.id}
                   onAiCommand={(line, q) => runInlineAi(b.id, line, q)}
                   known={known}
+                  hasReminder={(i) => {
+                    const r = e?.results[i];
+                    return !!r?.label && reminders.some((x) => !x.deleted && x.noteId === note.id && fold(x.title) === fold(r.label!));
+                  }}
+                  onReminder={(i) => {
+                    const r = e?.results[i];
+                    if (!r?.due || !r.label) return;
+                    const ex = reminders.find((x) => !x.deleted && x.noteId === note.id && fold(x.title) === fold(r.label!));
+                    if (ex) return ui.go({ kind: 'reminders' });
+                    useData.getState().saveReminder({ id: uid(), title: r.label, amount: r.value ? formatValue(r.value, fmt) : undefined, due: r.due.at, repeat: r.due.monthly ? 'monthly' : 'none', alertDays: 2, noteId: note.id });
+                    toast(t('rem.createdFromLine', { title: r.label }), 'ok');
+                  }}
                 />
               );
               break;
@@ -491,6 +546,9 @@ export function NoteView({ note }: { note: Note }) {
             case 'compare':
               body = <CompareBlock note={note} block={b} ctx={ctx} fmt={fmt} ev={ev} onChange={set} />;
               break;
+            case 'audio':
+              body = <AudioBlock block={b} onTranscribe={() => openVoice(nearestCalc(b.id), b)} />;
+              break;
           }
           const sum = b.type === 'calc' ? blockSum(b.id) : null;
           return (
@@ -505,9 +563,14 @@ export function NoteView({ note }: { note: Note }) {
                     <ArrowDown size={13} />
                   </button>
                   {b.type === 'calc' && (
-                    <button className="ins-btn" onClick={() => setOrganizing(b.id)} title={t('org.title')}>
-                      <ListTree size={13} />
-                    </button>
+                    <>
+                      <button className="ins-btn" onClick={() => openVoice(b.id)} title={t('voice.title')}>
+                        <Mic size={13} />
+                      </button>
+                      <button className="ins-btn" onClick={() => setOrganizing(b.id)} title={t('org.title')}>
+                        <ListTree size={13} />
+                      </button>
+                    </>
                   )}
                   <button className="ins-btn danger" onClick={() => removeBlock(b.id)} title={t('block.remove')}>
                     <Trash2 size={13} />
@@ -569,6 +632,19 @@ export function NoteView({ note }: { note: Note }) {
           />
         );
       })()}
+      {voice && (
+        <VoiceCapture
+          ctx={ctx}
+          fmt={fmt}
+          noteContext={ev.context}
+          existing={voice.audio && voice.blob ? { blob: voice.blob, ms: voice.audio.ms, transcript: voice.audio.transcript } : undefined}
+          onDone={onVoiceDone}
+          onClose={() => setVoice(null)}
+        />
+      )}
+      <button className="voice-fab mobile-only" onClick={() => openVoice()} aria-label={t('voice.title')}>
+        <Mic size={22} />
+      </button>
       {savingTpl && <SaveTemplateModal note={note} open onClose={() => setSavingTpl(false)} />}
       <IconPicker
         open={!!iconFor}

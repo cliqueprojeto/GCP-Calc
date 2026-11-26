@@ -949,6 +949,10 @@ export interface LineResult {
   inferred?: string;
   /** posição onde começa o valor literal/esperado — o Enter reescreve dali em diante */
   fill?: number;
+  /** onde termina o valor (antes de "vence 10/12"); sem isso, vai até o fim da linha */
+  fillEnd?: number;
+  /** vencimento escrito na linha ("vence 10/12", "vence dia 5" = todo mês) */
+  due?: { at: number; monthly: boolean };
 }
 
 export interface DocResult {
@@ -981,6 +985,39 @@ const SECTION_RE = /^(?:#+\s+([\p{L}_][\p{L}\p{N}_ ]*?)|#([\p{L}_][\p{L}\p{N}_]*
 const EXPECT_RE = /^(\s*)([^=:]*#[\p{L}_][^=:]*?)(\s*[=:]\s*)(.*)$/u;
 /** "Sobra %", "Sobra % = xx %": percentual sobre as receitas */
 const PCT_LINE_RE = /^(\s*)([\p{L}_][\p{L}\p{N}_ ]*?)(\s*%)(\s*(?:[=:].*)?)$/u;
+
+/** "vence 10/12", "vencimento: 05/01/2027", "vence dia 5", "due 12/10", "vence el 10/12" */
+const DUE_RE = /\s+(?:vence(?:\s+(?:em|no|dia|el))?|vencimento|venc\.?|vencimiento|vto\.?|due(?:\s+on)?)\s*:?\s*((?:dia\s+|day\s+|d[ií]a\s+)?\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?|\d{4}-\d{2}-\d{2})\s*$/i;
+
+/** Data de vencimento a partir do texto (dd/mm, dd/mm/aaaa, aaaa-mm-dd ou "dia 5" = todo mês). */
+export function parseDue(s: string, ctx: Pick<EvalContext, 'dateOrder' | 'now'>): { at: number; monthly: boolean } | null {
+  const now = new Date(ctx.now);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const t = s.trim().toLowerCase();
+  const day = t.match(/^(?:dia|day|d[ií]a)?\s*(\d{1,2})$/);
+  if (day) {
+    const d = +day[1];
+    if (d < 1 || d > 31) return null;
+    let dt = new Date(now.getFullYear(), now.getMonth(), d);
+    if (dt.getTime() < today) dt = new Date(now.getFullYear(), now.getMonth() + 1, d);
+    return { at: dt.getTime(), monthly: true };
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    const [y, m, d] = t.split('-').map(Number);
+    return { at: new Date(y, m - 1, d).getTime(), monthly: false };
+  }
+  const parts = t.split('/').map(Number);
+  if (parts.length < 2) return null;
+  let [a, b, y] = parts;
+  const [d, m] = ctx.dateOrder === 'mdy' ? [b, a] : [a, b];
+  if (!d || !m || d > 31 || m > 12) return null;
+  if (y === undefined) {
+    y = now.getFullYear();
+    // "vence 05/01" em dezembro é do ano que vem
+    if (new Date(y, m - 1, d).getTime() < today - 60 * 86400_000) y++;
+  } else if (y < 100) y += 2000;
+  return { at: new Date(y, m - 1, d).getTime(), monthly: false };
+}
 
 /** Moeda mais recente da seção atual (ou do bloco). */
 function contextCurrency(st: DocState): string | undefined {
@@ -1124,8 +1161,24 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     }
   }
 
+  // "Luz: R$ 150 vence 10/12", "Aluguel: R$ 1.800 vence dia 5": data de vencimento (vira lembrete)
+  const bodyStart = line.length - body.length;
+  let due: LineResult['due'];
+  let dueText = '';
+  if (!(xm && refsSection)) {
+    const dm = body.match(DUE_RE);
+    if (dm && dm.index && dm.index > 0) {
+      const d = parseDue(dm[1], ctx);
+      if (d) {
+        due = d;
+        dueText = dm[0];
+        body = body.slice(0, dm.index);
+      }
+    }
+  }
   const { toks, segs } = resolve(rawLex(body, ctx), ctx, scope);
   const segments = [...pre, ...segs];
+  if (dueText) segments.push({ text: dueText, cls: 'date' });
   if (xm && refsSection) segments.push({ text: xm[3], cls: 'op' }, { text: xm[4], cls: 'ghost' });
   if (!toks.length) return push({ kind: 'text', segments, label });
   // linha só de texto com palavras-chave soltas (sem número nem variável) não gera resultado
@@ -1151,7 +1204,7 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
       }
     }
     if (literal && toks.some((t) => t.k === 'num') && value.unit?.dim === 'money' && fill === undefined) {
-      fill = line.length - body.length + (body.length - body.trimStart().length);
+      fill = bodyStart + (body.length - body.trimStart().length);
     }
     if (assign) st.vars.set(assign, value);
     // rótulos também viram variáveis ("Aluguel: 1.500" → "Aluguel * 12")
@@ -1159,7 +1212,7 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     if (refsSection && !label) label = xm![2].trim();
     const secToks = toks.filter((t): t is { k: 'section'; name: string } => t.k === 'section');
     const tone = secToks.length === 1 && toks.filter((t) => t.k !== 'agg').length === 1 ? st.sections.get(secToks[0].name)?.tone : undefined;
-    return push({ kind: 'value', value, segments, label: label ?? (assign ? am![2].trim() : undefined), assigned: assign, tone, aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill });
+    return push({ kind: 'value', value, segments, label: label ?? (assign ? am![2].trim() : undefined), assigned: assign, tone, due, fillEnd: dueText ? line.length - dueText.length : undefined, aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill });
   } catch (e) {
     const code = e instanceof CalcError ? e.code + (e.detail ? `:${e.detail}` : '') : 'syntax';
     return push({ kind: 'error', error: code, segments, label });

@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { loadDoc, saveDoc, uid } from '../lib/platform';
-import type { Block, DataDoc, Folder, Note, Settings, Tag, UserTemplate } from '../lib/types';
+import type { Block, DataDoc, Folder, InboxItem, Note, Reminder, Settings, Tag, UserTemplate } from '../lib/types';
 import { welcomeNotes } from '../notes/welcome';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -42,6 +42,8 @@ interface DataState {
   folders: Folder[];
   tags: Tag[];
   templates: UserTemplate[];
+  reminders: Reminder[];
+  inbox: InboxItem[];
   settings: Settings;
   /** contador de alterações locais (para a sincronização) */
   rev: number;
@@ -60,6 +62,11 @@ interface DataState {
   deleteTag(id: string): void;
   saveTemplate(t: Omit<UserTemplate, 'updated'>): void;
   deleteTemplate(id: string): void;
+  saveReminder(r: Omit<Reminder, 'updated'>): void;
+  patchReminder(id: string, patch: Partial<Reminder>): void;
+  deleteReminder(id: string): void;
+  addInbox(items: Omit<InboxItem, 'updated'>[]): void;
+  patchInbox(ids: string[], patch: Partial<InboxItem>): void;
   setSettings(patch: Partial<Settings> | ((s: Settings) => Partial<Settings>)): void;
   exportDoc(): DataDoc;
   importDoc(doc: DataDoc, mode: 'merge' | 'replace'): void;
@@ -94,6 +101,8 @@ export const useData = create<DataState>((set, get) => ({
   folders: [],
   tags: [],
   templates: [],
+  reminders: [],
+  inbox: [],
   settings: DEFAULT_SETTINGS,
   rev: 0,
 
@@ -118,6 +127,9 @@ export const useData = create<DataState>((set, get) => ({
       folders: doc?.folders ?? [],
       tags: doc?.tags ?? [],
       templates: doc?.templates ?? [],
+      reminders: doc?.reminders ?? [],
+      // a central guarda 90 dias de avisos
+      inbox: (doc?.inbox ?? []).filter((x) => x.at > now() - 90 * 86400_000),
       settings: s,
     });
     if (!doc) persistData();
@@ -210,6 +222,31 @@ export const useData = create<DataState>((set, get) => ({
       return { templates: exists ? s.templates.map((x) => (x.id === tp.id ? item : x)) : [...s.templates, item], rev: s.rev + 1 };
     });
   },
+  saveReminder(r) {
+    set((s) => {
+      const item: Reminder = { ...r, updated: now() };
+      const exists = s.reminders.some((x) => x.id === r.id);
+      return { reminders: exists ? s.reminders.map((x) => (x.id === r.id ? item : x)) : [...s.reminders, item], rev: s.rev + 1 };
+    });
+  },
+  patchReminder(id, patch) {
+    set((s) => ({ reminders: s.reminders.map((x) => (x.id === id ? { ...x, ...patch, updated: now() } : x)), rev: s.rev + 1 }));
+  },
+  deleteReminder(id) {
+    set((s) => ({ reminders: s.reminders.map((x) => (x.id === id ? { ...x, deleted: now(), updated: now() } : x)), rev: s.rev + 1 }));
+  },
+  addInbox(items) {
+    if (!items.length) return;
+    set((s) => {
+      const have = new Set(s.inbox.map((x) => x.id));
+      const add = items.filter((x) => !have.has(x.id)).map((x) => ({ ...x, updated: now() }));
+      return add.length ? { inbox: [...add, ...s.inbox], rev: s.rev + 1 } : {};
+    });
+  },
+  patchInbox(ids, patch) {
+    const set_ = new Set(ids);
+    set((s) => ({ inbox: s.inbox.map((x) => (set_.has(x.id) ? { ...x, ...patch, updated: now() } : x)), rev: s.rev + 1 }));
+  },
   deleteTemplate(id) {
     set((s) => ({ templates: s.templates.map((x) => (x.id === id ? { ...x, blocks: [], deleted: now(), updated: now() } : x)), rev: s.rev + 1 }));
   },
@@ -222,12 +259,12 @@ export const useData = create<DataState>((set, get) => ({
   },
 
   exportDoc() {
-    const { notes, folders, tags, templates } = get();
-    return { version: 1, notes, folders, tags, templates };
+    const { notes, folders, tags, templates, reminders, inbox } = get();
+    return { version: 1, notes, folders, tags, templates, reminders, inbox };
   },
 
   importDoc(doc, mode) {
-    if (mode === 'replace') set((s) => ({ notes: doc.notes, folders: doc.folders, tags: doc.tags, templates: doc.templates ?? [], rev: s.rev + 1 }));
+    if (mode === 'replace') set((s) => ({ notes: doc.notes, folders: doc.folders, tags: doc.tags, templates: doc.templates ?? [], reminders: doc.reminders ?? [], inbox: doc.inbox ?? [], rev: s.rev + 1 }));
     else get().mergeRemote(doc);
   },
 
@@ -237,9 +274,11 @@ export const useData = create<DataState>((set, get) => ({
     const f = mergeLists(s.folders, doc.folders || []);
     const t = mergeLists(s.tags, doc.tags || []);
     const p = mergeLists(s.templates, doc.templates || []);
-    const pulled = n.pulled + f.pulled + t.pulled + p.pulled;
-    if (pulled) set({ notes: n.list.sort((a, b) => b.updated - a.updated), folders: f.list, tags: t.list, templates: p.list });
-    return { pulled, ahead: n.ahead || f.ahead || t.ahead || p.ahead };
+    const r = mergeLists(s.reminders, doc.reminders || []);
+    const i = mergeLists(s.inbox, doc.inbox || []);
+    const pulled = n.pulled + f.pulled + t.pulled + p.pulled + r.pulled + i.pulled;
+    if (pulled) set({ notes: n.list.sort((a, b) => b.updated - a.updated), folders: f.list, tags: t.list, templates: p.list, reminders: r.list, inbox: i.list.sort((a, b) => b.at - a.at) });
+    return { pulled, ahead: n.ahead || f.ahead || t.ahead || p.ahead || r.ahead || i.ahead };
   },
 }));
 
@@ -262,7 +301,7 @@ export function flushSave() {
 
 useData.subscribe((s, prev) => {
   if (!s.loaded) return;
-  if (s.notes !== prev.notes || s.folders !== prev.folders || s.tags !== prev.tags || s.templates !== prev.templates) {
+  if (s.notes !== prev.notes || s.folders !== prev.folders || s.tags !== prev.tags || s.templates !== prev.templates || s.reminders !== prev.reminders || s.inbox !== prev.inbox) {
     if (dataTimer) clearTimeout(dataTimer);
     dataTimer = setTimeout(persistData, 400);
   }

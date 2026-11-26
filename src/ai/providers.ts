@@ -54,7 +54,7 @@ function anthropicClient(p: AiProvider) {
   });
 }
 
-async function json(res: Response) {
+export async function json(res: Response) {
   const text = await res.text();
   let data: any = null;
   try {

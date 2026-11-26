@@ -1,4 +1,4 @@
-import { Cloud, CloudOff, Heart, Menu as MenuIcon, Moon, RefreshCw, Sun, ListOrdered, CloudAlert, Loader2, Download } from 'lucide-react';
+import { Bell, Cloud, CloudOff, Heart, Menu as MenuIcon, Moon, RefreshCw, Sun, ListOrdered, CloudAlert, Loader2, Download } from 'lucide-react';
 import { useData } from '../store/data';
 import { useUi } from '../store/ui';
 import { useRates } from '../lib/rates';
@@ -7,6 +7,9 @@ import { THEMES, resolveTheme } from '../lib/themes';
 import { useLang, useT, LOCALES } from '../i18n';
 import type { Lang } from '../lib/types';
 import { useUpdate } from './UpdateBanner';
+import { InboxPanel, useUnread } from './Reminders';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Topbar() {
   const t = useT();
@@ -17,6 +20,8 @@ export function Topbar() {
   const sync = useSync();
   const update = useUpdate();
   const theme = resolveTheme(settings.theme, settings.customTheme);
+  const unread = useUnread();
+  const [inbox, setInbox] = useState(false);
 
   const toggleDark = () => {
     // alterna para o "par" do tema atual (mesmo grupo, modo oposto)
@@ -64,6 +69,20 @@ export function Topbar() {
       <button className="icon-btn" onClick={toggleDark} title={t('topbar.toggleTheme')}>
         {theme.dark ? <Sun size={17} /> : <Moon size={17} />}
       </button>
+      <div className="tb-inbox">
+        <button className={`icon-btn ${inbox ? 'on' : ''}`} onClick={() => setInbox(!inbox)} title={t('inbox.title')}>
+          <Bell size={17} />
+          {unread > 0 && <span className="tb-count">{unread > 99 ? '99+' : unread}</span>}
+        </button>
+        {inbox &&
+          createPortal(
+            <>
+              <div className="tb-scrim" onClick={() => setInbox(false)} />
+              <InboxPanel onClose={() => setInbox(false)} />
+            </>,
+            document.body,
+          )}
+      </div>
       <button className="icon-btn heart" onClick={() => set({ support: true })} title={t('sidebar.support')}>
         <Heart size={17} />
       </button>

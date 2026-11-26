@@ -336,3 +336,27 @@ describe('despesas com e sem sinal', () => {
     expect(r[7]).toBe('R$ 550,00');
   });
 });
+
+describe('vencimentos nas linhas', () => {
+  it('entende "vence 10/12" e "vence dia 5" sem atrapalhar o valor', () => {
+    const ctx = defaultContext({ rates, now: new Date(2026, 10, 26, 10, 0).getTime() });
+    const doc = evaluateDocument(['Luz: R$ 150 vence 10/12', 'Aluguel: R$ 1.800 vence dia 5', 'Escola: 900 vencimento 05/01'].join('\n'), ctx);
+    expect(formatValue(doc.lines[0].value!, { decimal: 'comma', grouping: true, precision: 2, lang: 'pt', currencyPosition: 'before', tags: [] })).toBe('R$ 150,00');
+    expect(new Date(doc.lines[0].due!.at).toDateString()).toBe(new Date(2026, 11, 10).toDateString());
+    expect(doc.lines[1].due!.monthly).toBe(true);
+    expect(new Date(doc.lines[1].due!.at).toDateString()).toBe(new Date(2026, 11, 5).toDateString());
+    expect(new Date(doc.lines[2].due!.at).getFullYear()).toBe(2027);
+    const fmt = { decimal: ctx.decimal, grouping: true, precision: 4, lang: ctx.lang, currencyPosition: 'before' as const, tags: [] };
+    expect(canonicalLine('Luz: R$ 150 vence 10/12', doc.lines[0], fmt)).toBe('Luz: R$ 150,00 vence 10/12');
+  });
+});
+
+describe('ditado', () => {
+  it('converte o que foi dito em linhas de cálculo', async () => {
+    const { dictationToLines } = await import('../src/lib/dictation');
+    const lines = dictationToLines('Comprei arroz por 27,90, feijão 8 reais e 49 centavos e paguei a luz 150. Gasolina 200 reais', 'pt', { decimal: 'comma', symbol: 'R$' });
+    expect(lines).toEqual(['Arroz: R$ 27,90', 'Feijão: R$ 8,49', 'Luz: R$ 150', 'Gasolina: R$ 200']);
+    expect(run(lines.join('\n'))).toEqual(['R$ 27,90', 'R$ 8,49', 'R$ 150,00', 'R$ 200,00']);
+    expect(dictationToLines('2 pacotes de café 18,90', 'pt', { decimal: 'comma', symbol: 'R$' })).toEqual(['Café: 2 * R$ 18,90']);
+  });
+});

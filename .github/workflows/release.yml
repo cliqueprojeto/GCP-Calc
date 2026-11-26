@@ -196,6 +196,12 @@ jobs:
           cp "$MAIN" /tmp/MainActivity.original.kt
           cp packaging/android/MainActivity.kt "$MAIN"
           echo "MAIN=$MAIN" >> "$GITHUB_ENV"
+          # Permissões: microfone (anotações por voz) e notificações (lembretes de contas)
+          MANIFEST=src-tauri/gen/android/app/src/main/AndroidManifest.xml
+          for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS POST_NOTIFICATIONS; do
+            grep -q "android.permission.$perm" "$MANIFEST" || sed -i "s#<application#<uses-permission android:name=\"android.permission.$perm\" />\n    <application#" "$MANIFEST"
+          done
+          grep -n "uses-permission" "$MANIFEST"
       - name: Compilar APK (arm64, armv7 e x86_64)
         run: |
           # novas tentativas em falhas de rede do Gradle/Maven (ex.: 429 Too Many Requests)

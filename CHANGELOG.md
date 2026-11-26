@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.0 — anotações por voz, lembretes e notificações
+
+### Anotações por voz
+- **Fale e o app anota**: toque no microfone (botão flutuante no celular ou na barra de cada bloco de cálculo) e diga, por exemplo, “comprei arroz por 27,90, café 18 e paguei a luz 150”.
+- **Transcrição** pela IA que você já configurou — OpenAI, Groq (tem plano gratuito), Gemini ou Mistral — ou ditado ao vivo quando o aparelho oferece.
+- **Vira cálculo**: o que foi dito se transforma em linhas (`Arroz: R$ 27,90`, `Café: R$ 18,00`…) com prévia dos resultados. Com IA, a conversão é mais esperta; sem IA, o app converte no próprio aparelho.
+- **Inserir** ou **inserir e organizar** (receitas e despesas, totais e saldo).
+- O **áudio pode ficar salvo na nota**, com player e transcrição, para ouvir de novo ou converter depois.
+
+### Lembretes e notificações
+- **Lembretes** de contas e compromissos: valor, data, hora, repetição (semanal, mensal, anual) e aviso com antecedência.
+- **Notificações do sistema**: no Android ficam agendadas e chegam mesmo com o app fechado; no Windows, macOS e Linux aparecem com o app aberto (e os atrasados são avisados ao abrir).
+- **Central de notificações** no sino da barra superior, com **contador de não lidas**, lidas e **arquivadas**, “marcar todas como lidas” e “marcar como pago” direto no aviso.
+- **Página Lembretes**: calendário do mês, atrasados, hoje, próximos 7 dias, total a pagar no mês e concluídos.
+- **Marcar como pago** passa lembretes repetidos para o próximo vencimento; dá para adiar 1 dia ou 1 semana e arquivar.
+- **Vencimentos nas notas**: escreva `Luz: R$ 150 vence 10/12` ou `Aluguel: R$ 1.800 vence dia 5` (todo mês). O valor continua sendo calculado e um sino ao lado do resultado cria o lembrete com um toque.
+- Lembretes e notificações sincronizam pelo Google Drive.
+
+### Permissões
+- No **primeiro uso**, o app explica e pede de uma vez **microfone e notificações** (no Android, pela janela do próprio sistema) e guarda a escolha.
+- Nova seção **Configurações › Permissões**, com a situação de cada uma e o botão para pedir de novo.
+
 ## 1.4.0 — seções, moeda automática, modelos compartilháveis e relatórios
 
 ### Cálculo como num editor de código

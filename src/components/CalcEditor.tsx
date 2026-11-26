@@ -4,7 +4,7 @@
  */
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { canonicalLine, isMoneyLine, regroupAtCaret } from '../lib/autoformat';
-import { Copy, RefreshCw } from 'lucide-react';
+import { Bell, BellRing, Copy, RefreshCw } from 'lucide-react';
 import { AI_COMMAND, FUNCS, type LineResult } from '../engine/evaluate';
 import { fold } from '../engine/units';
 import { formatValue, plainNumber, type FormatOptions, type Value } from '../engine/value';
@@ -62,6 +62,10 @@ export interface CalcEditorProps {
   autoFocus?: boolean;
   /** "/ia pergunta" + Enter */
   onAiCommand?(lineIndex: number, question: string): void;
+  /** linha com vencimento ("vence 10/12"): cria o lembrete */
+  onReminder?(lineIndex: number): void;
+  /** linhas que já têm lembrete */
+  hasReminder?(lineIndex: number): boolean;
   /** nomes conhecidos na nota (variáveis e seções) para o autocompletar */
   known?: Suggestion[];
 }
@@ -104,7 +108,7 @@ function measure(ta: HTMLTextAreaElement, s: string): number {
   return c.measureText(s).width;
 }
 
-export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, known = [] }: CalcEditorProps) {
+export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, onReminder, hasReminder, known = [] }: CalcEditorProps) {
   const t = useT();
   const taRef = useRef<HTMLTextAreaElement>(null);
   const srcRef = useRef<HTMLDivElement>(null);
@@ -379,6 +383,11 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
             const s = formatValue(r.value, fmt);
             return (
               <div key={i} className={`res ${r.assigned ? 'assigned' : ''} ${r.aggregate ? 'aggregate' : ''} ${r.tone ? 'tone-' + r.tone : ''} ${i === activeLine ? 'active' : ''}`}>
+                {r.due && onReminder && (
+                  <button className={`res-bell ${hasReminder?.(i) ? 'on' : ''}`} title={hasReminder?.(i) ? t('rem.has') : t('rem.createFromLine')} onClick={() => onReminder(i)}>
+                    {hasReminder?.(i) ? <BellRing size={13} /> : <Bell size={13} />}
+                  </button>
+                )}
                 <button className="res-val" title={t('editor.clickToCopy')} onClick={() => copyResult(r.value!)}>
                   <span>{s}</span>
                   <Copy size={12} className="res-copy" />

@@ -15,7 +15,9 @@ export type Block =
   | { id: string; type: 'progress'; label: string; value: string; goal: string; color: string }
   | { id: string; type: 'ticker'; codes: string[] }
   /** relatório comparativo entre notas (ex.: orçamento do mês passado × este mês); "self" = a própria nota */
-  | { id: string; type: 'compare'; sources: string[]; title?: string; only?: 'all' | 'sections' };
+  | { id: string; type: 'compare'; sources: string[]; title?: string; only?: 'all' | 'sections' }
+  /** anotação de voz gravada na nota (áudio compactado) com a transcrição */
+  | { id: string; type: 'audio'; src: string; mime: string; ms: number; transcript?: string; created: number };
 
 export type BlockType = Block['type'];
 
@@ -103,6 +105,10 @@ export interface Settings {
   ratesOnOpen: boolean;
   ratesMaxAge: number;
   lineNumbers: boolean;
+  /** permissões pedidas no primeiro uso (microfone e notificações) e o que o usuário escolheu */
+  permissions?: { asked: boolean; mic?: 'granted' | 'denied' | 'prompt' | 'unsupported'; notify?: 'granted' | 'denied' | 'prompt' | 'unsupported'; at?: number };
+  /** manter o áudio na nota ao transcrever */
+  keepAudio?: boolean;
   /** separadores e moeda automáticos ao digitar / dar Enter */
   autoFormat?: boolean;
   /** sugestões de variáveis, seções e funções enquanto digita */
@@ -135,6 +141,46 @@ export interface DataDoc {
   tags: Tag[];
   /** modelos criados pelo usuário (ou importados de outros usuários) */
   templates?: UserTemplate[];
+  /** lembretes (contas a vencer, compromissos) */
+  reminders?: Reminder[];
+  /** central de notificações */
+  inbox?: InboxItem[];
+}
+
+export type Repeat = 'none' | 'weekly' | 'monthly' | 'yearly';
+
+/** Lembrete: conta a vencer ou compromisso financeiro. */
+export interface Reminder {
+  id: string;
+  title: string;
+  /** valor como expressão ("R$ 150", "Aluguel * 1,1") */
+  amount?: string;
+  /** próximo vencimento (data e hora) */
+  due: number;
+  repeat: Repeat;
+  /** avisar N dias antes (além do dia) */
+  alertDays: number;
+  noteId?: string;
+  /** vencimentos já pagos/concluídos */
+  paid?: number[];
+  archived?: boolean;
+  updated: number;
+  deleted?: number;
+}
+
+/** Item da central de notificações. */
+export interface InboxItem {
+  id: string;
+  reminderId?: string;
+  noteId?: string;
+  kind: 'before' | 'due' | 'overdue' | 'info';
+  title: string;
+  body: string;
+  at: number;
+  read?: boolean;
+  archived?: boolean;
+  updated: number;
+  deleted?: number;
 }
 
 /** Modelo do usuário: a nota completa (blocos, gráficos, ícone e cores). */

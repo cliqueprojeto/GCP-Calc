@@ -1,6 +1,11 @@
 package br.com.gestaoculturalpro.calc
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.graphics.Color
@@ -12,6 +17,8 @@ import androidx.core.view.WindowInsetsCompat
  * Atividade principal do GCP-Calc no Android.
  * - Ignora a escala de fonte do sistema (textZoom 100): a interface já é responsiva e
  *   o tamanho do texto é ajustado dentro do app (Configurações › Geral › Editor).
+ * - No primeiro uso pede, de uma vez, as permissões de microfone (anotações por voz) e de
+ *   notificações (lembretes de contas); a escolha fica salva pelo próprio Android.
  * - Desenha de ponta a ponta e informa ao CSS as áreas da barra de status, da barra de
  *   gestos, do entalhe e do teclado (--safe-t/-b/-l/-r e --kb), em pixels CSS.
  */
@@ -21,6 +28,7 @@ class MainActivity : TauriActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    askPermissionsOnce()
     WindowCompat.setDecorFitsSystemWindows(window, false)
     @Suppress("DEPRECATION")
     window.statusBarColor = Color.TRANSPARENT
@@ -55,9 +63,41 @@ class MainActivity : TauriActivity() {
           c.isAppearanceLightNavigationBars = light
         }
       }
+      /** "granted" | "denied" para "mic" ou "notify" */
+      @JavascriptInterface
+      fun permission(name: String): String = if (isGranted(permFor(name))) "granted" else "denied"
+      @JavascriptInterface
+      fun requestPermissions() {
+        runOnUiThread { ActivityCompat.requestPermissions(this@MainActivity, missing().toTypedArray(), 4710) }
+      }
     }, "GcpNative")
     // A página carrega depois da criação da WebView: reaplica algumas vezes.
     for (delay in longArrayOf(400, 1500, 4000)) webView.postDelayed({ push() }, delay)
+  }
+
+  private fun wanted(): List<String> {
+    val list = mutableListOf(Manifest.permission.RECORD_AUDIO)
+    if (Build.VERSION.SDK_INT >= 33) list.add(Manifest.permission.POST_NOTIFICATIONS)
+    return list
+  }
+
+  private fun isGranted(p: String?) = p == null || ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+
+  private fun permFor(name: String): String? = when (name) {
+    "mic" -> Manifest.permission.RECORD_AUDIO
+    "notify" -> if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null
+    else -> null
+  }
+
+  private fun missing() = wanted().filter { !isGranted(it) }
+
+  /** Primeiro uso: pede todas as permissões juntas (uma vez; depois, só pelo app em Configurações). */
+  private fun askPermissionsOnce() {
+    val prefs = getSharedPreferences("gcp-calc", MODE_PRIVATE)
+    if (prefs.getBoolean("permissions-asked", false)) return
+    prefs.edit().putBoolean("permissions-asked", true).apply()
+    val need = missing()
+    if (need.isNotEmpty()) ActivityCompat.requestPermissions(this, need.toTypedArray(), 4710)
   }
 
   private fun push() {

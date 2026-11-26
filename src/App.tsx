@@ -15,6 +15,10 @@ import { Support } from './components/Support';
 import { CommandPalette, Home, Keypad, Templates, Trash } from './components/Pages';
 import { Toasts } from './components/ui';
 import { runUpdateCheck } from './components/UpdateBanner';
+import { RemindersPage, amountText } from './components/Reminders';
+import { PermissionsFirstRun } from './components/Permissions';
+import { startReminderLoop } from './lib/reminders';
+import { currentContext, formatOptions } from './lib/calcContext';
 
 export function App() {
   const loaded = useData((s) => s.loaded);
@@ -34,6 +38,11 @@ export function App() {
       startAutoSync();
       setTimeout(() => autoBackupIfDue(), 20_000);
       setTimeout(() => runUpdateCheck(), 4_000);
+      // lembretes: avisos na central, notificações do sistema e agendamento no Android
+      startReminderLoop((r) => {
+        const ctx = currentContext();
+        return amountText(r, ctx, formatOptions(ctx));
+      });
     })();
   }, []);
 
@@ -114,10 +123,12 @@ export function App() {
           {view.kind === 'settings' && <SettingsView initial={view.section} />}
           {view.kind === 'templates' && <Templates />}
           {view.kind === 'trash' && <Trash />}
+          {view.kind === 'reminders' && <RemindersPage />}
         </div>
         <Keypad />
       </main>
       <Support />
+      <PermissionsFirstRun />
       <CommandPalette />
       <Toasts />
     </div>

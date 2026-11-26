@@ -1,3 +1,4 @@
+import { PermissionsSettings } from './Permissions';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Bot,
@@ -49,7 +50,7 @@ import { useEvalContext, formatOptions } from '../lib/calcContext';
 import { evaluateLine, newDocState } from '../engine/evaluate';
 import { formatValue } from '../engine/value';
 
-type Section = 'general' | 'calc' | 'currency' | 'ai' | 'backup' | 'updates' | 'about';
+type Section = 'general' | 'calc' | 'currency' | 'ai' | 'backup' | 'permissions' | 'updates' | 'about';
 
 export function SettingsView({ initial }: { initial?: string }) {
   const t = useT();
@@ -63,6 +64,7 @@ export function SettingsView({ initial }: { initial?: string }) {
     { id: 'currency', icon: <Coins size={16} />, label: t('settings.currency') },
     { id: 'ai', icon: <Bot size={16} />, label: t('settings.ai') },
     { id: 'backup', icon: <CloudUpload size={16} />, label: t('settings.backup') },
+    { id: 'permissions', icon: <ShieldCheck size={16} />, label: t('perm.section') },
     { id: 'updates', icon: <RefreshCw size={16} />, label: t('settings.updates') },
     { id: 'about', icon: <Info size={16} />, label: t('settings.about') },
   ];
@@ -83,6 +85,11 @@ export function SettingsView({ initial }: { initial?: string }) {
         </nav>
         <div className="set-body">
           {sec === 'general' && <General />}
+          {sec === 'permissions' && (
+            <Card icon={<ShieldCheck size={18} />} title={t('perm.section')} subtitle={t('perm.sectionSub')}>
+              <PermissionsSettings />
+            </Card>
+          )}
           {sec === 'calc' && <CalcSettings />}
           {sec === 'currency' && <CurrencySettings />}
           {sec === 'ai' && <AiSettings />}

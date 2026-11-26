@@ -15,7 +15,35 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(system::OAuthState::default())
+        .setup(|app| {
+            // Linux (WebKitGTK): permite o microfone para gravar e transcrever áudio nas notas.
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::Manager;
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.with_webview(|wv| {
+                        use webkit2gtk::{PermissionRequestExt, SettingsExt, UserMediaPermissionRequest, WebViewExt};
+                        use webkit2gtk::glib::object::Cast;
+                        let view = wv.inner();
+                        if let Some(settings) = WebViewExt::settings(&view) {
+                            settings.set_enable_media_stream(true);
+                        }
+                        view.connect_permission_request(|_, req| {
+                            if req.downcast_ref::<UserMediaPermissionRequest>().is_some() {
+                                req.allow();
+                                return true;
+                            }
+                            false
+                        });
+                    });
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            let _ = app;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             system::data_load,
             system::data_save,

@@ -43,6 +43,9 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 | 🧾 | **Seções, moeda e autocompletar (como num editor de código)** | `#Receitas` abre uma seção e `#Receitas` numa conta vale a soma dela · `Total #Receitas` · `#Receitas - #Despesas` (despesas negativas ou positivas são descontadas) · `Sobra %` = sobra em % das receitas · `Flora: 2.000` numa seção em reais vira **R$ 2.000,00**; quantidades (`pessoas: 2`) continuam números · separadores de milhar entram enquanto você digita · **Enter** formata a linha (`-R$ 100,00`) e preenche `= …` · autocompletar de variáveis (com o valor), `#seções` e funções · receitas em verde, despesas em vermelho |
 | 🗂️ | **Organizar com um clique** | Separa lançamentos em receitas e despesas, coloca a moeda, soma cada seção e calcula saldo e saldo % · prévia antes × depois · revisão opcional pela IA |
 | 📈 | **Relatórios comparativos (BI)** | Bloco que compara notas salvas lado a lado (ex.: orçamento do mês passado × este mês): seções, lançamentos e saldo com variação em valor e %, verde quando melhora e vermelho quando piora · entra no PDF, Word, PowerPoint e Excel |
+| 🎙️ | **Anotações por voz** | Toque no microfone (botão flutuante no celular, ou na barra do bloco) e fale: “comprei arroz por 27,90, café 18 e paguei a luz 150” · transcrição pela IA que você já usa (**OpenAI, Groq — tem plano gratuito —, Gemini ou Mistral**) ou ditado ao vivo quando o aparelho oferece · vira linhas de cálculo (`Arroz: R$ 27,90`…) com prévia, mesmo sem IA · inserir, ou inserir e organizar · o áudio pode ficar salvo na nota para ouvir e transcrever depois |
+| 🔔 | **Lembretes e notificações** | Contas a vencer e compromissos com valor, data, hora e repetição (semanal, mensal, anual) · aviso N dias antes, no dia e se atrasar · **notificações do sistema** no Android (agendadas, chegam com o app fechado) e no Windows/macOS/Linux · central de notificações com **contador de não lidas**, lidas e **arquivadas** · calendário do mês, atrasados, próximos 7 dias e total a pagar · “marcar como pago” passa o lembrete para o próximo mês · escreva `Luz: R$ 150 vence 10/12` ou `Aluguel: R$ 1.800 vence dia 5` numa nota e crie o lembrete com um toque no sino |
+| 🛡️ | **Permissões no primeiro uso** | Ao abrir pela primeira vez, o app explica e pede de uma vez **microfone e notificações**; a escolha fica salva e pode ser revista em *Configurações › Permissões* |
 | 📅 | **Datas** | `hoje + 30 dias` · `25/12/2026 − hoje` · semanas, meses e anos no calendário |
 | 🗂️ | **Notas organizadas** | Nome, cor e ícone (banco com toda a biblioteca **Lucide**, 1.500+ ícones com busca, e emojis) · pastas · fixar · lixeira por 30 dias · busca rápida `Ctrl+K` · modelos prontos |
 | 📊 | **Elementos gráficos no bloco** | Gráficos de colunas, barras, pizza, rosca e linha gerados dos próprios cálculos · metas com barra de progresso · painel de cotações · destaques coloridos · imagens · adesivos · títulos e divisores |
@@ -134,8 +137,10 @@ O GCP-Calc ainda não usa certificados pagos de assinatura de código, por isso 
 
 ## 🖼️ Telas
 
-| Seções #Receitas/#Despesas, moeda automática e cores | Relatório comparativo entre notas (BI) |
+| Lembretes: calendário, atrasados e total a pagar | Central de notificações com não lidas e arquivadas |
 |---|---|
+| <img src="docs/screenshots/20-lembretes.png" alt="Lembretes" /> | <img src="docs/screenshots/21-notificacoes.png" alt="Notificações" /> |
+| **Seções #Receitas/#Despesas, moeda automática e cores** | **Relatório comparativo entre notas (BI)** |
 | <img src="docs/screenshots/18-secoes.png" alt="Seções e moeda automática" /> | <img src="docs/screenshots/19-relatorio.png" alt="Relatório comparativo" /> |
 | **Moedas ao vivo, unidades, datas e funções** | **Gráficos gerados dos cálculos** |
 | <img src="docs/screenshots/02-moedas-unidades.png" alt="Moedas e unidades" /> | <img src="docs/screenshots/03-grafico.png" alt="Gráfico" /> |
@@ -156,7 +161,7 @@ O GCP-Calc ainda não usa certificados pagos de assinatura de código, por isso 
 
 **Android**
 
-<img src="docs/screenshots/16-android.png" width="300" alt="Android" />&nbsp;&nbsp;<img src="docs/screenshots/17-android-teclado.png" width="300" alt="Android com teclado de operadores" />
+<img src="docs/screenshots/16-android.png" width="260" alt="Android" />&nbsp;&nbsp;<img src="docs/screenshots/17-android-teclado.png" width="260" alt="Android com teclado de operadores" />&nbsp;&nbsp;<img src="docs/screenshots/22-android-voz.png" width="260" alt="Anotar por voz no Android" />
 
 </div>
 
@@ -170,6 +175,8 @@ Flora: 2.000                     moeda da seção (→ R$ 2.000,00)
 #Despesas
 Médico: -R$ 2.000                negativas ou positivas, tanto faz
 #Receitas - #Despesas =          Enter preenche o resultado
+Luz: R$ 150 vence 10/12          vencimento → lembrete (sino ao lado do resultado)
+Aluguel: R$ 1.800 vence dia 5    todo mês
 Sobra %                          sobra em % das receitas
 Aluguel: R$ 1.500                rótulo + valor (o rótulo vira variável)
 x = 10 * 3                       variável
@@ -285,6 +292,8 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Live currencies** (160+ currencies and crypto), refreshed when the app opens and on demand, plus **custom tags** (aliases or your own currencies with a fixed rate).
 - **Unit conversion** across 14 dimensions, including compound units (`5 ft 3 in in cm`, `100 km / 2 h`).
 - **Sections like a code editor**: `#Income` opens a section and `#Income` in a formula is its sum (`Total #Income`, `#Income - #Expenses`, `Balance %`); plain numbers inherit the section's currency, quantities stay numbers; thousands separators appear while you type, Enter formats the line; autocomplete for variables, `#sections` and functions; income in green, expenses in red. **Organize** rewrites a block into income/expenses with totals (optional AI review).
+- **Voice notes**: tap the mic and say what you bought; it's transcribed (OpenAI, Groq, Gemini or Mistral, or live dictation where available), turned into calculation lines with a preview, and the audio can be kept in the note.
+- **Reminders and notifications**: bills and commitments with amount, date, repeat and early alerts; system notifications on Android (scheduled, even with the app closed) and desktop; notification center with unread count and archive; month calendar; write `Power: $150 due 12/10` in a note and turn it into a reminder with one tap. All permissions are requested together on first launch and remembered.
 - **Comparison reports (BI)**: a block that compares saved notes side by side (e.g. last month's budget × this month), with change in value and %.
 - **Your own templates**: save any note as a template with its own icon and color, share it as a text code or `.gcptpl` file, and import templates from other people. New built-ins: shopping list, pets, split the bill, road trip, BBQ, installments vs. cash, savings goal, back to school.
 - **Percentages** (`300 + 10%`, `20% of 300`, `50 as % of 200`), **variables**, labels, custom functions, `total`/`average`/`prev`, dates, `pmt`/`fv`/`pv`, hex and binary.
@@ -307,6 +316,8 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Monedas en vivo** (160+ monedas y criptomonedas), actualizadas al abrir la app y cuando lo pidas, y **tags personalizados** (alias o monedas propias con cotización fija).
 - **Conversión de unidades** en 14 magnitudes, incluso compuestas (`5 ft 3 in en cm`, `100 km / 2 h`).
 - **Secciones como en un editor de código**: `#Ingresos` abre una sección y `#Ingresos` en una fórmula es su suma (`Total #Ingresos`, `#Ingresos - #Gastos`, `Saldo %`); los números sueltos toman la moneda de la sección y las cantidades siguen siendo números; separadores de miles al escribir, Enter formatea la línea; autocompletar de variables, `#secciones` y funciones; ingresos en verde y gastos en rojo. **Organizar** reescribe un bloque en ingresos/gastos con totales (revisión opcional por IA).
+- **Notas de voz**: toca el micrófono y di lo que compraste; se transcribe (OpenAI, Groq, Gemini o Mistral, o dictado en vivo donde exista), se convierte en líneas de cálculo con vista previa y el audio puede quedar en la nota.
+- **Recordatorios y notificaciones**: cuentas y compromisos con valor, fecha, repetición y aviso previo; notificaciones del sistema en Android (programadas, incluso con la app cerrada) y en el escritorio; centro de notificaciones con no leídas y archivadas; calendario del mes; escribe `Luz: € 60 vence 10/12` en una nota y crea el recordatorio con un toque. Todos los permisos se piden juntos al abrir la app por primera vez y se recuerdan.
 - **Informes comparativos (BI)**: un bloque que compara notas guardadas lado a lado (ej.: presupuesto del mes pasado × este mes), con variación en valor y %.
 - **Plantillas propias**: guarda cualquier nota como plantilla con icono y color, compártela como código de texto o archivo `.gcptpl` e importa plantillas de otras personas. Nuevas incluidas: lista de compras, mascotas, dividir la cuenta, viaje en coche, asado, a plazos o al contado, meta de ahorro, vuelta al cole.
 - **Porcentajes** (`300 + 10%`, `20% de 300`, `50 en % de 200`), **variables**, etiquetas, funciones propias, `total`/`promedio`/`prev`, fechas, `pmt`/`fv`/`pv`, hexadecimal y binario.

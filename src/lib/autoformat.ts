@@ -55,7 +55,7 @@ export function canonicalLine(line: string, r: LineResult | undefined, fmt: Form
   let head = line.slice(0, r.fill);
   // "… =" ou "… :" sem valor ainda: um espaço antes do resultado
   if (/[=:]\s*$/.test(head)) head = head.replace(/\s*$/, ' ');
-  const next = head + v;
+  const next = head + v + (r.fillEnd !== undefined ? line.slice(r.fillEnd) : '');
   return next === line ? null : next;
 }
 

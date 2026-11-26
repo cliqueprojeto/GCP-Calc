@@ -5,7 +5,7 @@ GCP-Calc is distributed under the GNU GPL v3.0 (or later) and bundles the compon
 
 | Componente | Uso | Licença | Site |
 |---|---|---|---|
-| Tauri 2 (+ plugins http, dialog, opener, fs) | Núcleo nativo multiplataforma, janelas e empacotamento | MIT / Apache-2.0 | https://tauri.app |
+| Tauri 2 (+ plugins http, dialog, opener, fs, notification) | Núcleo nativo multiplataforma, janelas, notificações e empacotamento | MIT / Apache-2.0 | https://tauri.app |
 | React · React DOM | Interface | MIT | https://react.dev |
 | Zustand | Estado da interface | MIT | https://github.com/pmndrs/zustand |
 | Lucide (lucide-react) | Ícones da interface e banco de ícones das notas | ISC | https://lucide.dev |

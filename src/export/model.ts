@@ -362,6 +362,10 @@ export async function buildExport(
       case 'sticker':
         if (withImages) blocks.push({ type: 'sticker', png: await iconPng(b.emoji, note.color, Math.max(32, b.size)), size: b.size, align: b.align });
         break;
+      case 'audio':
+        // a gravação não vai para o documento; a transcrição vai como destaque
+        if (b.transcript) blocks.push({ type: 'callout', text: `“${b.transcript}”`, color: note.color, iconPng: withImages ? await iconPng('AudioLines', note.color, 48) : '' });
+        break;
       case 'compare': {
         // relatório comparativo: título + uma linha por item ("Receitas: A → B", variação no resultado)
         const all = useData.getState().notes;

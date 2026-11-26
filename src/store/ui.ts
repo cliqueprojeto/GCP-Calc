@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Turn } from '../ai/assist';
 
-export type View = { kind: 'note'; id: string } | { kind: 'settings'; section?: string } | { kind: 'trash' } | { kind: 'templates' } | { kind: 'home' };
+export type View = { kind: 'note'; id: string } | { kind: 'settings'; section?: string } | { kind: 'trash' } | { kind: 'templates' } | { kind: 'home' } | { kind: 'reminders' };
 
 export interface Toast {
   id: number;
