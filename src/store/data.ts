@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 16,
   decimal: 'auto',
   grouping: true,
-  precision: 6,
+  precision: 4,
   currencyPosition: 'auto',
   dollar: 'USD',
   baseCurrency: 'BRL',
