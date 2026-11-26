@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.0 — exportações com o visual da tela
+
+### Novo
+- **Imagem PNG (igual à tela)**: uma "foto" exata da nota — tema, fontes, cores da sintaxe e gráficos — sem barras, botões, menus nem o cursor do editor.
+- **PDF (igual à tela)**: o mesmo visual da tela, paginado em A4 sem cortar blocos ao meio.
+
+### Melhorado
+- **PDF com texto selecionável** agora segue o tema atual: fundo, cartões, coluna de resultados, cores da sintaxe, rodapé Σ e gráficos idênticos aos da tela.
+- **Word e PowerPoint** no mesmo estilo da tela e continuam editáveis: cor da página/slide do tema, blocos como cartões, resultados na cor do tema e, no PowerPoint, gráficos nativos com as cores, rótulos e grade da tela.
+- Os gráficos exportados usam a mesma paleta e o mesmo desenho da tela (barras arredondadas, valores em cima, legenda com %).
+
+### Corrigido
+- Modelo "Viagem internacional": o custo por pessoa agora divide o total da viagem.
+
 ## 1.2.0 — IA direto na nota
 
 ### Comando `/ia`

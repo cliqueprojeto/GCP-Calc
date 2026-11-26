@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -23,6 +23,7 @@ import {
   MessageSquareQuote,
   ListOrdered,
   FileText,
+  FileImage,
   FileType,
   Presentation,
   Sheet,
@@ -32,7 +33,7 @@ import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState
 import { formatValue, plainNumber } from '../engine/value';
 import { formatOptions, useEvalContext } from '../lib/calcContext';
 import { NoteIcon } from '../lib/icons';
-import { copyText, saveTextFile, uid } from '../lib/platform';
+import { copyText, saveBinaryFile, saveTextFile, uid } from '../lib/platform';
 import type { Block, BlockType, Note } from '../lib/types';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
@@ -99,6 +100,7 @@ export function NoteView({ note }: { note: Note }) {
   const ui = useUi();
   const [iconFor, setIconFor] = useState<null | 'note' | string>(null);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const noteRef = useRef<HTMLDivElement>(null);
 
   // avaliação de todos os blocos de cálculo da nota, em ordem, com variáveis compartilhadas
   const ev: Evaluated = useMemo(() => evaluateNote(note, ctx, fmt), [note, ctx, fmt]);
@@ -222,14 +224,25 @@ export function NoteView({ note }: { note: Note }) {
     await saveTextFile(`${name}.${md ? 'md' : 'txt'}`, text, [{ name: md ? 'Markdown' : 'Text', extensions: [md ? 'md' : 'txt'] }]);
   };
 
-  const runExport = async (format: ExportFormat | 'xlsx-all') => {
+  const runExport = async (format: ExportFormat | 'xlsx-all' | 'png' | 'pdf-screen') => {
     toast(t('note.exporting'));
     try {
+      if (format === 'png' || format === 'pdf-screen') {
+        if (!noteRef.current) return;
+        const { snapshotPng, snapshotPdf } = await import('../export/snapshot');
+        const { fileBase } = await import('../export/model');
+        const png = format === 'png';
+        const bytes = png ? await snapshotPng(noteRef.current) : await snapshotPdf(noteRef.current, note.title);
+        const ext = png ? 'png' : 'pdf';
+        const path = await saveBinaryFile(`${fileBase(note.title)}.${ext}`, bytes, [{ name: png ? 'PNG' : 'PDF', extensions: [ext] }], png ? 'image/png' : 'application/pdf');
+        if (path) toast(t('note.exported'), 'ok');
+        return;
+      }
       const { exportNote: doExport, exportAllXlsx } = await import('../export');
       const path =
         format === 'xlsx-all'
           ? await exportAllXlsx(useData.getState().notes.filter((n) => !n.deleted))
-          : await doExport(note, format);
+          : await doExport(note, format as ExportFormat);
       if (path) toast(t('note.exported'), 'ok');
     } catch (e) {
       console.error(e);
@@ -288,7 +301,7 @@ export function NoteView({ note }: { note: Note }) {
   const iconTargetBlock = iconFor && iconFor !== 'note' ? note.blocks.find((b) => b.id === iconFor) : undefined;
 
   return (
-    <div className="note" style={{ '--note-color': note.color } as React.CSSProperties}>
+    <div className="note" ref={noteRef} style={{ '--note-color': note.color } as React.CSSProperties}>
       <header className="note-head">
         <button className="note-icon" onClick={() => setIconFor('note')} title={t('note.changeIcon')} style={{ color: note.color }}>
           <NoteIcon name={note.icon} size={30} />
@@ -324,6 +337,12 @@ export function NoteView({ note }: { note: Note }) {
                 <div className="menu-label">
                   <Download size={13} /> {t('note.export')}
                 </div>
+                <MenuItem icon={<FileImage size={15} />} onClick={() => (runExport('png'), close())}>
+                  {t('note.exportPng')}
+                </MenuItem>
+                <MenuItem icon={<FileText size={15} />} onClick={() => (runExport('pdf-screen'), close())}>
+                  {t('note.exportPdfScreen')}
+                </MenuItem>
                 <MenuItem icon={<FileText size={15} />} onClick={() => (runExport('pdf'), close())}>
                   {t('note.exportPdf')}
                 </MenuItem>

@@ -68,6 +68,8 @@ export const es: Dict = {
   'note.copyAll': 'Copiar nota con resultados',
   'note.copiedAll': 'Nota copiada con los resultados',
   'note.export': 'Exportar',
+  'note.exportPng': 'Imagen PNG (igual a la pantalla)',
+  'note.exportPdfScreen': 'PDF (igual a la pantalla)',
   'note.exportPdf': 'PDF (texto seleccionable)',
   'note.exportDocx': 'Word (.docx editable)',
   'note.exportPptx': 'PowerPoint (.pptx editable)',

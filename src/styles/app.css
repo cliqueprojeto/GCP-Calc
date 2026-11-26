@@ -2968,3 +2968,33 @@ html.tiling .btn.grad {
   text-align: center;
   line-height: 1.45;
 }
+
+/* ----------------------------- captura para PNG/PDF: só o conteúdo da nota */
+.note.capturing .block-tools,
+.note.capturing .note-actions,
+.note.capturing .add-block,
+.note.capturing .menu-wrap,
+.note.capturing .assistant,
+.note.capturing .chart-head .seg,
+.note.capturing .blk-heading .seg,
+.note.capturing .callout-colors,
+.note.capturing .prog-colors,
+.note.capturing .sticker-tools,
+.note.capturing .img-tools,
+.note.capturing .tick-x,
+.note.capturing .tick-add,
+.note.capturing .ticker-foot,
+.note.capturing .res-copy,
+.note.capturing .calc-input,
+.note.capturing .res-cmd {
+  display: none !important;
+}
+.note.capturing .src-line.active {
+  background: transparent !important;
+}
+.note.capturing .res.active .res-val {
+  box-shadow: none !important;
+}
+.note.capturing .block-wrap:focus-within {
+  border-color: var(--border) !important;
+}

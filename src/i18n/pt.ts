@@ -66,6 +66,8 @@ export const pt = {
   'note.copyAll': 'Copiar nota com resultados',
   'note.copiedAll': 'Nota copiada com os resultados',
   'note.export': 'Exportar',
+  'note.exportPng': 'Imagem PNG (igual à tela)',
+  'note.exportPdfScreen': 'PDF (igual à tela)',
   'note.exportPdf': 'PDF (texto selecionável)',
   'note.exportDocx': 'Word (.docx editável)',
   'note.exportPptx': 'PowerPoint (.pptx editável)',

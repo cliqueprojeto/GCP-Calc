@@ -10,6 +10,8 @@ import { convert, currencyUnit, formatValue, type EvalContext, type FormatOption
 import { chartDataFor, evaluateNote } from '../lib/noteEval';
 import type { ChartKind, Lang, Note } from '../lib/types';
 import { LOCALES } from '../i18n';
+import { mix, screenPalette, type ScreenPalette } from '../lib/colors';
+import { aggregateValues } from '../engine/evaluate';
 
 /** Paleta de impressão (fundo branco), estilo editor de código claro. */
 export const PRINT = {
@@ -60,6 +62,7 @@ export type XBlock =
   | { type: 'chart'; kind: ChartKind; title: string; data: XChartDatum[]; png?: string; w: number; h: number }
   | { type: 'callout'; text: string; color: string; iconPng: string }
   | { type: 'progress'; label: string; valueText: string; goalText: string; value?: number; goal?: number; pct: number; color: string }
+  | { type: 'sum'; sum: string; avg: string; count: number }
   | { type: 'ticker'; base: string; rows: { code: string; text: string }[] }
   | { type: 'image'; src: string; caption: string; width: number; w: number; h: number }
   | { type: 'divider' }
@@ -73,6 +76,7 @@ export interface XDoc {
   lang: Lang;
   blocks: XBlock[];
   note: Note;
+  pal: ScreenPalette;
 }
 
 // ------------------------------------------------------------------ imagens
@@ -136,18 +140,67 @@ export function tint(hex: string, amount = 0.88): string {
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Gráfico em SVG (cores sólidas) para PDF e Word. */
-export function chartSvg(kind: ChartKind, data: XChartDatum[], W: number, H: number): string {
-  const P = PRINT.chart;
+/** Estilo de documento igual à tela: fundo, cartões, textos e sintaxe do tema atual. */
+export interface DocStyle {
+  dark: boolean;
+  bg: string;
+  card: string;
+  card2: string;
+  border: string;
+  text: string;
+  muted: string;
+  accent: string;
+  res: string;
+  zebra: string;
+  syn: Record<string, string>;
+  chart: string[];
+}
+
+export function docStyle(pal: ScreenPalette): DocStyle {
+  return {
+    dark: pal.dark,
+    bg: pal.bg,
+    card: pal.panel,
+    card2: pal.panel2,
+    border: pal.border,
+    text: pal.text,
+    muted: pal.muted,
+    accent: pal.accent,
+    res: pal.syn.res,
+    zebra: mix(pal.text, pal.panel, 0.035),
+    syn: { ...pal.syn, hdr: pal.syn.hdr, cmt: pal.syn.cmt },
+    chart: pal.chart,
+  };
+}
+
+export interface ChartStyle {
+  bg: string;
+  text: string;
+  muted: string;
+  border: string;
+  colors: string[];
+}
+
+/** Estilo de gráfico: igual à tela (tema atual) ou em fundo branco (Word/PowerPoint) com as cores da tela. */
+export function chartStyle(pal: ScreenPalette, mode: 'screen' | 'print'): ChartStyle {
+  return mode === 'screen'
+    ? { bg: pal.panel, text: pal.text, muted: pal.muted, border: pal.border, colors: pal.chart }
+    : { bg: '#ffffff', text: PRINT.text, muted: PRINT.muted, border: PRINT.border, colors: pal.chart };
+}
+
+/** Gráfico em SVG desenhado como na tela (barras arredondadas, valores em cima, legenda com %). */
+export function chartSvg(kind: ChartKind, data: XChartDatum[], W: number, H: number, st: ChartStyle): string {
+  const P = st.colors;
   const font = `font-family="Inter, Arial, sans-serif"`;
+  const mono = `font-family="JetBrains Mono, Consolas, monospace"`;
   const parts: string[] = [];
   if (kind === 'pie' || kind === 'donut') {
     const pos = data.filter((d) => d.n > 0);
     const total = pos.reduce((a, d) => a + d.n, 0) || 1;
-    const R = Math.min(H / 2 - 10, W / 4);
-    const cx = R + 14;
+    const R = Math.min(H / 2 - 12, 150);
+    const cx = R + 20;
     const cy = H / 2;
-    const r = kind === 'donut' ? R * 0.58 : 0;
+    const r = kind === 'donut' ? R * 0.6 : 0;
     let a0 = -Math.PI / 2;
     pos.forEach((d, i) => {
       const a1 = a0 + (d.n / total) * Math.PI * 2;
@@ -159,53 +212,67 @@ export function chartSvg(kind: ChartKind, data: XChartDatum[], W: number, H: num
           : r
             ? `M ${p(R, a0)} A ${R} ${R} 0 ${large} 1 ${p(R, a1)} L ${p(r, a1)} A ${r} ${r} 0 ${large} 0 ${p(r, a0)} Z`
             : `M ${cx} ${cy} L ${p(R, a0)} A ${R} ${R} 0 ${large} 1 ${p(R, a1)} Z`;
-      parts.push(`<path d="${path}" fill="${P[i % P.length]}" stroke="#fff" stroke-width="2"/>`);
+      parts.push(`<path d="${path}" fill="${P[i % P.length]}" stroke="${st.bg}" stroke-width="3"/>`);
       a0 = a1;
     });
-    const lx = cx + R + 30;
-    const rowH = Math.min(26, (H - 20) / Math.max(1, pos.length));
+    if (kind === 'donut') parts.push(`<text x="${cx}" y="${cy + 10}" ${mono} font-size="28" font-weight="800" text-anchor="middle" fill="${st.text}">${pos.length}</text>`);
+    const lx = cx + R + 40;
+    const rowH = Math.min(34, (H - 20) / Math.max(1, pos.length));
     pos.forEach((d, i) => {
       const y = cy - (pos.length * rowH) / 2 + i * rowH + rowH / 2;
-      parts.push(`<rect x="${lx}" y="${y - 6}" width="12" height="12" rx="3" fill="${P[i % P.length]}"/>`);
-      parts.push(`<text x="${lx + 20}" y="${y + 4}" ${font} font-size="13" fill="${PRINT.text}">${esc(d.label.slice(0, 28))}</text>`);
-      parts.push(`<text x="${W - 70}" y="${y + 4}" ${font} font-size="13" font-weight="600" text-anchor="end" fill="${PRINT.text}">${esc(d.text)}</text>`);
-      parts.push(`<text x="${W - 8}" y="${y + 4}" ${font} font-size="12" text-anchor="end" fill="${PRINT.muted}">${Math.round((d.n / total) * 100)}%</text>`);
+      parts.push(`<rect x="${lx}" y="${y - 8}" width="16" height="16" rx="5" fill="${P[i % P.length]}"/>`);
+      parts.push(`<text x="${lx + 28}" y="${y + 5}" ${font} font-size="17" fill="${st.text}">${esc(d.label.slice(0, 30))}</text>`);
+      parts.push(`<text x="${W - 80}" y="${y + 5}" ${mono} font-size="16" font-weight="600" text-anchor="end" fill="${st.text}">${esc(d.text)}</text>`);
+      parts.push(`<text x="${W - 12}" y="${y + 5}" ${mono} font-size="15" text-anchor="end" fill="${st.muted}">${Math.round((d.n / total) * 100)}%</text>`);
     });
   } else if (kind === 'hbar') {
     const max = Math.max(1e-9, ...data.map((d) => Math.abs(d.n)));
-    const rowH = Math.min(34, (H - 10) / Math.max(1, data.length));
-    const lw = 150;
-    const vw = 120;
+    const rowH = Math.min(40, (H - 10) / Math.max(1, data.length));
+    const lw = 190;
+    const vw = 150;
     data.forEach((d, i) => {
       const y = 6 + i * rowH;
-      const bw = ((W - lw - vw - 20) * Math.abs(d.n)) / max;
-      parts.push(`<text x="${lw - 10}" y="${y + rowH / 2 + 4}" ${font} font-size="13" text-anchor="end" fill="${PRINT.text}">${esc(d.label.slice(0, 22))}</text>`);
-      parts.push(`<rect x="${lw}" y="${y + rowH * 0.2}" width="${W - lw - vw - 20}" height="${rowH * 0.6}" rx="${rowH * 0.3}" fill="#f1f5f9"/>`);
-      parts.push(`<rect x="${lw}" y="${y + rowH * 0.2}" width="${Math.max(2, bw)}" height="${rowH * 0.6}" rx="${rowH * 0.3}" fill="${P[i % P.length]}"/>`);
-      parts.push(`<text x="${W - 6}" y="${y + rowH / 2 + 4}" ${font} font-size="13" font-weight="600" text-anchor="end" fill="${PRINT.text}">${esc(d.text)}</text>`);
+      const tw = W - lw - vw - 24;
+      const bw = (tw * Math.abs(d.n)) / max;
+      const bh = Math.min(16, rowH * 0.5);
+      parts.push(`<text x="${lw - 14}" y="${y + rowH / 2 + 5}" ${font} font-size="16" text-anchor="end" fill="${st.text}">${esc(d.label.slice(0, 22))}</text>`);
+      parts.push(`<rect x="${lw}" y="${y + rowH / 2 - bh / 2}" width="${tw}" height="${bh}" rx="${bh / 2}" fill="${st.border}"/>`);
+      parts.push(`<rect x="${lw}" y="${y + rowH / 2 - bh / 2}" width="${Math.max(bh, bw)}" height="${bh}" rx="${bh / 2}" fill="${P[i % P.length]}"/>`);
+      parts.push(`<text x="${W - 8}" y="${y + rowH / 2 + 5}" ${mono} font-size="16" font-weight="600" text-anchor="end" fill="${st.text}">${esc(d.text)}</text>`);
     });
   } else {
-    const pad = 36;
+    const pad = 40;
     const max = Math.max(1e-9, ...data.map((d) => d.n));
     const bw = (W - pad * 2) / Math.max(1, data.length);
-    const y = (n: number) => H - pad - (Math.max(0, n) / max) * (H - pad * 2);
-    parts.push(`<line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" stroke="${PRINT.border}" stroke-width="1.5"/>`);
-    if (kind === 'line') parts.push(`<polyline fill="none" stroke="${P[0]}" stroke-width="3" stroke-linejoin="round" points="${data.map((d, i) => `${pad + i * bw + bw / 2},${y(d.n)}`).join(' ')}"/>`);
+    const top = 30;
+    const base = H - pad;
+    const y = (n: number) => base - (Math.max(0, n) / max) * (base - top);
+    parts.push(`<line x1="${pad}" x2="${W - pad}" y1="${base}" y2="${base}" stroke="${st.border}" stroke-width="1.5"/>`);
+    if (kind === 'line') parts.push(`<polyline fill="none" stroke="${P[0]}" stroke-width="4" stroke-linejoin="round" points="${data.map((d, i) => `${pad + i * bw + bw / 2},${y(d.n)}`).join(' ')}"/>`);
     data.forEach((d, i) => {
       const x = pad + i * bw + bw / 2;
-      if (kind === 'bar') parts.push(`<rect x="${x - bw * 0.35}" y="${y(d.n)}" width="${bw * 0.7}" height="${H - pad - y(d.n)}" rx="5" fill="${P[i % P.length]}"/>`);
-      else parts.push(`<circle cx="${x}" cy="${y(d.n)}" r="5" fill="${P[1]}"/>`);
-      parts.push(`<text x="${x}" y="${H - pad + 18}" ${font} font-size="12" text-anchor="middle" fill="${PRINT.muted}">${esc(d.label.slice(0, 16))}</text>`);
-      parts.push(`<text x="${x}" y="${y(d.n) - 8}" ${font} font-size="12" font-weight="600" text-anchor="middle" fill="${PRINT.text}">${esc(d.text)}</text>`);
+      if (kind === 'bar') {
+        const h = Math.max(3, base - y(d.n));
+        parts.push(`<rect x="${x - bw * 0.35}" y="${base - h}" width="${bw * 0.7}" height="${h}" rx="8" fill="${P[i % P.length]}"/>`);
+      } else parts.push(`<circle cx="${x}" cy="${y(d.n)}" r="7" fill="${P[1]}"/>`);
+      parts.push(`<text x="${x}" y="${base + 24}" ${font} font-size="15" text-anchor="middle" fill="${st.muted}">${esc(d.label.slice(0, 16))}</text>`);
+      parts.push(`<text x="${x}" y="${y(d.n) - 10}" ${mono} font-size="16" font-weight="700" text-anchor="middle" fill="${st.text}">${esc(d.text)}</text>`);
     });
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${parts.join('')}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="${st.bg}"/>${parts.join('')}</svg>`;
 }
 
 // -------------------------------------------------------------------- modelo
 
-export async function buildExport(note: Note, ctx: EvalContext, fmt: FormatOptions, opts: { base: string; withImages?: boolean } = { base: 'USD' }): Promise<XDoc> {
+export async function buildExport(
+  note: Note,
+  ctx: EvalContext,
+  fmt: FormatOptions,
+  opts: { base: string; withImages?: boolean; pal?: ScreenPalette; chartMode?: 'screen' | 'print' } = { base: 'USD' },
+): Promise<XDoc> {
   const ev = evaluateNote(note, ctx, fmt);
+  const pal = opts.pal ?? screenPalette();
+  const cstyle = chartStyle(pal, opts.chartMode ?? 'screen');
   const withImages = opts.withImages !== false;
   const blocks: XBlock[] = [];
   for (const b of note.blocks) {
@@ -229,6 +296,20 @@ export async function buildExport(note: Note, ctx: EvalContext, fmt: FormatOptio
         while (lines.length && lines[0].kind === 'empty') lines.shift();
         while (lines.length && lines[lines.length - 1].kind === 'empty') lines.pop();
         if (lines.length) blocks.push({ type: 'calc', lines });
+        // rodapé Σ (soma · média · linhas) quando o bloco é um grupo só, como na tela
+        const first = res.findIndex((x) => x.kind === 'value');
+        let last = -1;
+        res.forEach((x, i) => x.kind === 'value' && (last = i));
+        if (first >= 0 && !res.slice(first, last + 1).some((x) => x.kind === 'empty' || x.kind === 'header' || x.aggregate)) {
+          const vals = res.filter((x) => x.kind === 'value' && x.value && !x.aggregate && !x.value.date && !x.value.pct).map((x) => x.value!);
+          if (vals.length >= 2) {
+            try {
+              blocks.push({ type: 'sum', sum: formatValue(aggregateValues(vals, 'sum', ctx), fmt), avg: formatValue(aggregateValues(vals, 'avg', ctx), fmt), count: vals.length });
+            } catch {
+              /* valores incompatíveis */
+            }
+          }
+        }
         break;
       }
       case 'heading':
@@ -238,8 +319,8 @@ export async function buildExport(note: Note, ctx: EvalContext, fmt: FormatOptio
         const data = chartDataFor(note, b, ev, ctx).map((d) => ({ label: d.label, n: d.n, text: formatValue(d.value, fmt) }));
         if (!data.length) break;
         const W = 900;
-        const H = b.kind === 'pie' || b.kind === 'donut' ? 340 : b.kind === 'hbar' ? Math.min(420, 30 + data.length * 34) : 360;
-        const png = withImages ? await svgToPng(chartSvg(b.kind, data, W, H), W, H, 2) : undefined;
+        const H = b.kind === 'pie' || b.kind === 'donut' ? 340 : b.kind === 'hbar' ? Math.min(460, 20 + data.length * 40) : 380;
+        const png = withImages ? await svgToPng(chartSvg(b.kind, data, W, H, cstyle), W, H, 2) : undefined;
         blocks.push({ type: 'chart', kind: b.kind, title: b.title ?? '', data, png, w: W, h: H });
         break;
       }
@@ -289,6 +370,7 @@ export async function buildExport(note: Note, ctx: EvalContext, fmt: FormatOptio
     lang: ctx.lang,
     blocks,
     note,
+    pal,
   };
 }
 
@@ -307,7 +389,7 @@ export const imageType = (src: string): 'png' | 'jpg' | 'gif' => (/^data:image\/
 
 /** Textos fixos dos documentos exportados, por idioma. */
 export const XT: Record<Lang, Record<string, string>> = {
-  pt: { exported: 'Exportado em', page: 'Página', of: 'de', value: 'Valor atual', goal: 'Meta', rates: 'Cotações', cont: 'continuação', section: 'Seção', description: 'Descrição', expression: 'Expressão', result: 'Valor', unit: 'Unidade', kind: 'Tipo', notes: 'Notas', summary: 'Resumo', chartData: 'Dados do gráfico', label: 'Rótulo', made: 'Gerado com GCP-Calc', general: 'Geral', observations: 'Observações', progress: 'Progresso' },
-  en: { exported: 'Exported on', page: 'Page', of: 'of', value: 'Current value', goal: 'Goal', rates: 'Rates', cont: 'continued', section: 'Section', description: 'Description', expression: 'Expression', result: 'Value', unit: 'Unit', kind: 'Type', notes: 'Notes', summary: 'Summary', chartData: 'Chart data', label: 'Label', made: 'Made with GCP-Calc', general: 'General', observations: 'Notes', progress: 'Progress' },
-  es: { exported: 'Exportado el', page: 'Página', of: 'de', value: 'Valor actual', goal: 'Meta', rates: 'Cotizaciones', cont: 'continuación', section: 'Sección', description: 'Descripción', expression: 'Expresión', result: 'Valor', unit: 'Unidad', kind: 'Tipo', notes: 'Notas', summary: 'Resumen', chartData: 'Datos del gráfico', label: 'Etiqueta', made: 'Hecho con GCP-Calc', general: 'General', observations: 'Observaciones', progress: 'Progreso' },
+  pt: { avg: 'média', lines: 'linhas', exported: 'Exportado em', page: 'Página', of: 'de', value: 'Valor atual', goal: 'Meta', rates: 'Cotações', cont: 'continuação', section: 'Seção', description: 'Descrição', expression: 'Expressão', result: 'Valor', unit: 'Unidade', kind: 'Tipo', notes: 'Notas', summary: 'Resumo', chartData: 'Dados do gráfico', label: 'Rótulo', made: 'Gerado com GCP-Calc', general: 'Geral', observations: 'Observações', progress: 'Progresso' },
+  en: { avg: 'avg', lines: 'lines', exported: 'Exported on', page: 'Page', of: 'of', value: 'Current value', goal: 'Goal', rates: 'Rates', cont: 'continued', section: 'Section', description: 'Description', expression: 'Expression', result: 'Value', unit: 'Unit', kind: 'Type', notes: 'Notes', summary: 'Summary', chartData: 'Chart data', label: 'Label', made: 'Made with GCP-Calc', general: 'General', observations: 'Notes', progress: 'Progress' },
+  es: { avg: 'promedio', lines: 'líneas', exported: 'Exportado el', page: 'Página', of: 'de', value: 'Valor actual', goal: 'Meta', rates: 'Cotizaciones', cont: 'continuación', section: 'Sección', description: 'Descripción', expression: 'Expresión', result: 'Valor', unit: 'Unidad', kind: 'Tipo', notes: 'Notas', summary: 'Resumen', chartData: 'Datos del gráfico', label: 'Etiqueta', made: 'Hecho con GCP-Calc', general: 'General', observations: 'Observaciones', progress: 'Progreso' },
 };

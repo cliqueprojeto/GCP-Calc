@@ -34,9 +34,9 @@ export const TEMPLATES: Template[] = [
     title: { pt: 'Viagem internacional', en: 'International trip', es: 'Viaje internacional' },
     desc: { pt: 'Custos em várias moedas convertidos ao vivo', en: 'Costs in several currencies, converted live', es: 'Costos en varias monedas convertidos en vivo' },
     text: {
-      pt: j('# Viagem a Lisboa', 'dias = 8', 'Passagem: R$ 4.380', 'Hotel: € 95 * dias', 'Alimentação: € 45 * dias', 'Passeios: € 260', 'Seguro: US$ 68', 'total em BRL', '', '# Por pessoa', 'pessoas = 2', 'prev / pessoas'),
-      en: j('# Trip to Lisbon', 'days = 8', 'Flights: $1,280', 'Hotel: €95 * days', 'Food: €45 * days', 'Tours: €260', 'Insurance: $68', 'total in USD', '', '# Per person', 'people = 2', 'prev / people'),
-      es: j('# Viaje a Lisboa', 'dias = 8', 'Vuelos: € 780', 'Hotel: € 95 * dias', 'Comida: € 45 * dias', 'Paseos: € 260', 'Seguro: US$ 68', 'total en EUR', '', '# Por persona', 'personas = 2', 'prev / personas'),
+      pt: j('# Viagem a Lisboa', 'dias = 8', 'Passagem: R$ 4.380', 'Hotel: € 95 * dias', 'Alimentação: € 45 * dias', 'Passeios: € 260', 'Seguro: US$ 68', 'custo total = total em BRL', '', '# Por pessoa', 'pessoas = 2', 'custo total / pessoas'),
+      en: j('# Trip to Lisbon', 'days = 8', 'Flights: $1,280', 'Hotel: €95 * days', 'Food: €45 * days', 'Tours: €260', 'Insurance: $68', 'trip cost = total in USD', '', '# Per person', 'people = 2', 'trip cost / people'),
+      es: j('# Viaje a Lisboa', 'dias = 8', 'Vuelos: € 780', 'Hotel: € 95 * dias', 'Comida: € 45 * dias', 'Paseos: € 260', 'Seguro: US$ 68', 'costo total = total en EUR', '', '# Por persona', 'personas = 2', 'costo total / personas'),
     },
   },
   {
