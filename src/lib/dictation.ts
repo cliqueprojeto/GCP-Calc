@@ -23,6 +23,58 @@ const INCOME: Record<Lang, RegExp> = {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// números por extenso (pt, es, en) → algarismos: "vinte e sete" → 27, "mil e duzentos" → 1200
+const UNITS: Record<string, number> = {
+  zero: 0, um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, treze: 13, catorze: 14, quatorze: 14, quinze: 15, dezesseis: 16, dezasseis: 16, dezessete: 17, dezassete: 17, dezoito: 18, dezenove: 19, dezanove: 19,
+  vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50, sessenta: 60, setenta: 70, oitenta: 80, noventa: 90,
+  cem: 100, cento: 100, duzentos: 200, duzentas: 200, trezentos: 300, trezentas: 300, quatrocentos: 400, quinhentos: 500, seiscentos: 600, setecentos: 700, oitocentos: 800, novecentos: 900,
+  uno: 1, dos: 2, cuatro: 4, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
+  veinte: 20, veintiuno: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, sesenta: 60, ochenta: 80,
+  cien: 100, ciento: 100, doscientos: 200, trescientos: 300, cuatrocientos: 400, quinientos: 500, seiscientos: 600, setecientos: 700, ochocientos: 800, novecientos: 900,
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+const SCALES: Record<string, number> = { mil: 1000, thousand: 1000, hundred: 100, milhao: 1e6, milhoes: 1e6, millon: 1e6, millones: 1e6, million: 1e6 };
+const fold = (w: string) => w.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+export function wordsToNumbers(text: string): string {
+  const parts = text.split(/(\s+|[,.;!?-])/);
+  const out: string[] = [];
+  let i = 0;
+  while (i < parts.length) {
+    const w = fold(parts[i]);
+    if (!(w in UNITS) && !(w in SCALES && w !== 'hundred')) {
+      out.push(parts[i++]);
+      continue;
+    }
+    // junta "vinte e sete", "mil e duzentos", "twenty-seven", "one hundred and five"
+    let total = 0;
+    let cur = 0;
+    let j = i;
+    let last = i;
+    while (j < parts.length) {
+      const t = fold(parts[j]);
+      if (t in UNITS) {
+        cur += UNITS[t];
+        last = j;
+      } else if (t in SCALES) {
+        const k = SCALES[t];
+        if (k === 100) cur = (cur || 1) * 100;
+        else {
+          total += (cur || 1) * k;
+          cur = 0;
+        }
+        last = j;
+      } else if (!/^\s+$|^-$/.test(parts[j]) && !['e', 'y', 'and'].includes(t)) break;
+      j++;
+    }
+    out.push(String(total + cur));
+    // conector final ("e") que não liga números fica no texto
+    i = last + 1;
+  }
+  return out.join('');
+}
+
 /** "8 reais e 49 centavos" → "8,49 reais"; "1 mil e 200" → "1200" */
 function normalizeMoney(t: string, lang: Lang, dec: string): string {
   let s = t.replace(/(\d+)\s*(?:reais|real|dólares|dolares|dollars?|euros?|pesos?)\s*(?:e|and|y|con)\s*(\d{1,2})\s*(?:centavos?|cents?|céntimos?|centimos?)/gi, (_, a, b) => `${a}${dec}${b.padStart(2, '0')} ${lang === 'en' ? 'dollars' : lang === 'es' ? 'euros' : 'reais'}`);
@@ -33,7 +85,7 @@ function normalizeMoney(t: string, lang: Lang, dec: string): string {
 
 export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string }): string[] {
   const dec = opts.decimal === 'comma' ? ',' : '.';
-  const src = normalizeMoney(text.replace(/\s+/g, ' ').trim(), lang, dec);
+  const src = normalizeMoney(wordsToNumbers(text.replace(/\s+/g, ' ').trim()), lang, dec);
   // separa itens: pontuação, quebras e " e " / " and " / " y " antes de uma palavra
   const parts = src
     .split(/[;\n]|[.!?](?=\s|$)|,(?=\s*\D)|\s+(?:e|and|y|mais|plus)\s+(?=[\p{L}])/u)

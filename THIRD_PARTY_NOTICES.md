@@ -6,6 +6,13 @@ GCP-Calc is distributed under the GNU GPL v3.0 (or later) and bundles the compon
 | Componente | Uso | Licença | Site |
 |---|---|---|---|
 | Tauri 2 (+ plugins http, dialog, opener, fs, notification) | Núcleo nativo multiplataforma, janelas, notificações e empacotamento | MIT / Apache-2.0 | https://tauri.app |
+| Pyodide | Python (CPython) em WebAssembly no playground | MPL-2.0 | https://pyodide.org |
+| sql.js | SQLite em WebAssembly no playground | MIT | https://github.com/sql-js/sql.js |
+| Sucrase | Conversão de TypeScript no playground | MIT | https://github.com/alangpierce/sucrase |
+| Prism | Coloração de código | MIT | https://prismjs.com |
+| Transformers.js | Execução local do modelo de transcrição | Apache-2.0 | https://github.com/huggingface/transformers.js |
+| ONNX Runtime Web | Motor de inferência em WebAssembly | MIT | https://onnxruntime.ai |
+| OpenAI Whisper (base, ONNX) | Modelo de transcrição de voz offline | MIT | https://github.com/openai/whisper |
 | React · React DOM | Interface | MIT | https://react.dev |
 | Zustand | Estado da interface | MIT | https://github.com/pmndrs/zustand |
 | Lucide (lucide-react) | Ícones da interface e banco de ícones das notas | ISC | https://lucide.dev |

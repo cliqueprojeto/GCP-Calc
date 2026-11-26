@@ -146,6 +146,23 @@ const PERM = { permissions: { asked: true } };
 await shot('20-lembretes', { data: REM, settings: PERM, act: async (p) => (await p.waitForTimeout(2200), await p.click('.sidebar >> text=Lembretes'), await p.waitForTimeout(500)) });
 await shot('21-notificacoes', { data: REM, settings: PERM, act: async (p) => (await p.waitForTimeout(2200), await p.click('.tb-inbox .icon-btn'), await p.waitForTimeout(400)) });
 await shot('22-android-voz', { device: devices['Pixel 7'], data: REM, settings: { ...PERM, theme: 'nebula' }, act: async (p) => (await p.waitForTimeout(2200), await p.click('.voice-fab'), await p.waitForTimeout(400)) });
+// playground de código e comprovantes
+const CUPOM = fs.existsSync(new URL('./.cupom.b64', import.meta.url)) ? fs.readFileSync(new URL('./.cupom.b64', import.meta.url), 'utf8') : '';
+const DEV = {
+  version: 1, folders: [], tags: [],
+  notes: [
+    { id: 'py', title: 'Python: primeiros passos', icon: 'Braces', color: '#3b82f6', created: T0, updated: T0, blocks: [
+      { id: 'c1', type: 'callout', text: 'Toque em ▶ Rodar (ou Ctrl+Enter). O que o programa pede com input() vem da caixa “Entrada”.', color: '#6366f1', icon: 'Lightbulb' },
+      { id: 'k1', type: 'code', lang: 'python', title: 'Listas e laços', code: 'compras = {"arroz": 27.90, "café": 18.90, "pão": 12.50}\ntotal = 0\nfor item, preco in compras.items():\n    print(f"{item:<8} R$ {preco:>6.2f}")\n    total += preco\nprint("-" * 18)\nprint(f"{\'total\':<8} R$ {total:>6.2f}")\n', output: [{ t: 'out', s: 'arroz    R$  27.90\ncafé     R$  18.90\npão      R$  12.50\n------------------\ntotal    R$  59.30' }], ok: true, ms: 38 },
+      { id: 'k2', type: 'code', lang: 'sql', title: 'SQL', code: "CREATE TABLE gastos (item TEXT, valor REAL, tipo TEXT);\nINSERT INTO gastos VALUES ('Aluguel', 1800, 'casa'), ('Mercado', 950, 'casa'), ('Cinema', 60, 'lazer');\nSELECT tipo, SUM(valor) AS total FROM gastos GROUP BY tipo;\n", output: [{ t: 'out', s: '+-------+-------+\n| tipo  | total |\n+-------+-------+\n| casa  | 2750  |\n| lazer | 60    |\n+-------+-------+\n(2 linhas)' }], ok: true, ms: 12 },
+    ] },
+    { id: 'rec', title: 'Compras do mês', icon: 'ShoppingCart', color: '#22c55e', created: T0 - 1000, updated: T0 - 1000, blocks: [
+      { id: 'r1', type: 'calc', text: '# 🛒 Mercado\n🍚 Arroz: R$ 27,90\n☕ Café: R$ 18,90\n🍞 Pão: R$ 12,50\ntotal\n\n# 🏠 Casa\n💡 Luz: R$ 150,00 vence dia 10\n🌐 Internet: R$ 99,90\ntotal\n\n✅ Gasto do mês: mercado + casa', attachments: CUPOM ? [{ id: 'a1', name: 'cupom-verdemar.jpg', mime: 'image/jpeg', src: CUPOM, w: 520, h: 760, line: 'arroz', created: T0 }, { id: 'a2', name: 'conta-luz.jpg', mime: 'image/jpeg', src: CUPOM, w: 520, h: 760, line: 'luz', created: T0 }] : [] },
+    ] },
+  ],
+};
+await shot('23-playground', { data: DEV, act: async (p) => (await p.click('.sidebar >> text=Python: primeiros passos'), await p.waitForTimeout(500)) });
+await shot('24-comprovantes', { data: DEV, act: async (p) => (await p.click('.sidebar >> text=Compras do mês'), await p.waitForTimeout(500)) });
 await shot('16-android', { device: devices['Pixel 7'], settings: { theme: 'nebula' } });
 await shot('17-android-teclado', {
   device: devices['Pixel 7'],

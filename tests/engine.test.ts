@@ -391,3 +391,14 @@ describe('emojis nas linhas', () => {
     expect(r[10]).toBe('R$ 60,00');
   });
 });
+
+describe('números por extenso no ditado', () => {
+  it('converte valores falados', async () => {
+    const { dictationToLines, wordsToNumbers } = await import('../src/lib/dictation');
+    expect(wordsToNumbers('vinte e sete reais e noventa centavos')).toBe('27 reais e 90 centavos');
+    expect(wordsToNumbers('mil e duzentos')).toBe('1200');
+    expect(wordsToNumbers('cento e cinquenta')).toBe('150');
+    expect(wordsToNumbers('twenty-seven dollars')).toBe('27 dollars');
+    expect(dictationToLines('Comprei arroz por vinte e sete reais e noventa centavos, café dezoito reais e paguei a luz de cento e cinquenta reais', 'pt', { decimal: 'comma', symbol: 'R$' })).toEqual(['Arroz: R$ 27,90', 'Café: R$ 18', 'Luz: R$ 150']);
+  });
+});
