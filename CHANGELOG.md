@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0 — exportação premium
+
+Agora cada nota pode ser exportada (menu **⋯ → Exportar**) com todos os elementos gráficos:
+
+- **PDF** com texto selecionável: fontes embutidas, sintaxe colorida, resultados alinhados, totais destacados, gráficos, destaques, metas, cotações, imagens e adesivos, com numeração de páginas.
+- **Word (.docx) editável**: cada bloco de cálculo vira uma tabela (expressão colorida | resultado); destaques, metas e cotações como tabelas sombreadas; gráficos e imagens como figuras.
+- **PowerPoint (.pptx) editável**: capa, um slide por seção com tabela nativa e **gráficos nativos do PowerPoint** (dá para editar dados e estilo), destaques, metas e cotações como formas.
+- **Excel (.xlsx) organizado de forma inteligente**:
+  - cada linha vira um registro com seção, descrição (rótulo, variável ou o texto da linha), expressão original, valor, unidade e tipo;
+  - valores com formato de moeda, porcentagem ou data;
+  - `total` e `média` viram fórmulas `SUM`/`AVERAGE`;
+  - variáveis e rótulos viram **nomes definidos**, e expressões simples viram **fórmulas vivas** (ex.: `=renda-despesas`), conferidas com o resultado do app;
+  - metas com "% atingido" calculado e tabela de dados de cada gráfico ao lado, pronta para inserir um gráfico;
+  - filtros, painel congelado e impressão ajustada à página.
+- **Excel com todas as notas**: uma aba por nota e uma aba de resumo com links.
+
 ## 1.0.1
 
 ### Visual mais limpo

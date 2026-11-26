@@ -45,6 +45,7 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 | 📊 | **Elementos gráficos no bloco** | Gráficos de colunas, barras, pizza, rosca e linha gerados dos próprios cálculos · metas com barra de progresso · painel de cotações · destaques coloridos · imagens · adesivos · títulos e divisores |
 | 🪄 | **Assistente passo a passo** | Não é um chat paralelo: aparece dentro da nota com botões contextuais e dinâmicos que vão perguntando (escolhas, número, texto) até gerar as linhas do cálculo, com prévia dos resultados antes de inserir |
 | 🎨 | **Temas e cores da sintaxe** | Premium escuros e claros · paletas de editores de código no estilo Omarchy · clássicos · seguir o sistema · tema personalizado · cores de números, unidades, moedas, operadores, variáveis, funções, comentários, títulos, rótulos, datas, tags e resultados **configuráveis por tema** |
+| 📤 | **Exportação premium** | **PDF** com texto selecionável, fontes embutidas e sintaxe colorida · **Word (.docx)** e **PowerPoint (.pptx)** editáveis, com tabelas e — no PowerPoint — gráficos nativos · **Excel (.xlsx)** organizado: seções, descrições, valores com formato de moeda/%/data, totais como `SUM`/`AVERAGE`, variáveis como nomes definidos e expressões convertidas em fórmulas vivas · Excel com todas as notas e aba de resumo · todos os elementos gráficos (gráficos, metas, destaques, cotações, imagens e adesivos) |
 | ☁️ | **Backup e sincronização** | Google Drive criptografado de ponta a ponta (AES-256-GCM) · sincronização automática entre aparelhos · backups datados com rotação · arquivo `.gcpcalc` com senha opcional |
 | 🔄 | **Atualizações automáticas** | Direto das Releases do GitHub, com conferência de SHA-256 |
 
@@ -253,7 +254,7 @@ Contribua com qualquer valor pelo checkout seguro do Stripe.
 ## 📄 Licenças
 
 - **GCP-Calc:** [GNU General Public License v3.0](LICENSE) ou posterior.
-- **Componentes de terceiros** (Tauri, React, Zustand, Lucide, node-qrcode, fontes Inter, JetBrains Mono, IBM Plex Mono, Fira Code, Roboto, Atkinson Hyperlegible e outros) e serviços consultados: veja [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- **Componentes de terceiros** (Tauri, React, Zustand, Lucide, jsPDF, docx, PptxGenJS, ExcelJS, node-qrcode, fontes Inter, JetBrains Mono, IBM Plex Mono, Fira Code, Roboto, Atkinson Hyperlegible e outros) e serviços consultados: veja [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores etc.) pertencem aos seus titulares e aparecem apenas como referência de compatibilidade.
 
@@ -271,6 +272,7 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Graphic blocks**: charts built from your calculations, goals with progress bars, rates board, callouts, images, stickers.
 - **Step-by-step assistant** inside the note (not a side chat): contextual buttons, choices and fields until the calculation lines are ready, with a live preview. 11 guided assistants work offline; optional AI (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama or any OpenAI-compatible API) with an API test button.
 - **Themes**: premium, Omarchy-style code-editor palettes, classic light/dark, follow system and custom; **syntax colors configurable per theme**.
+- **Premium export**: PDF with selectable text, editable Word and PowerPoint (native charts), and a smartly organized Excel (sections, formats, SUM/AVERAGE formulas, named variables and live formulas) — with all graphic elements.
 - **End-to-end encrypted Google Drive backup and sync** and `.gcpcalc` file backups.
 - **Automatic updates** from GitHub Releases (on startup, daily, weekly, every two weeks, monthly or never).
 
@@ -288,6 +290,7 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Bloques gráficos**: gráficos generados de tus cálculos, metas con progreso, panel de cotizaciones, destacados, imágenes y pegatinas.
 - **Asistente paso a paso** dentro de la nota (no es un chat aparte): botones contextuales, opciones y campos hasta armar las líneas del cálculo, con vista previa. 11 asistentes guiados funcionan sin conexión; IA opcional (Anthropic, OpenAI, Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama o cualquier API compatible con OpenAI) con botón para probar la API.
 - **Temas**: premium, paletas de editores de código estilo Omarchy, clásicos claros/oscuros, seguir el sistema y personalizado; **colores de la sintaxis configurables por tema**.
+- **Exportación premium**: PDF con texto seleccionable, Word y PowerPoint editables (gráficos nativos) y Excel organizado de forma inteligente (secciones, formatos, fórmulas SUM/AVERAGE, variables con nombre y fórmulas vivas), con todos los elementos gráficos.
 - **Copia y sincronización cifradas en Google Drive** y copias en archivo `.gcpcalc`.
 - **Actualizaciones automáticas** desde GitHub Releases.
 

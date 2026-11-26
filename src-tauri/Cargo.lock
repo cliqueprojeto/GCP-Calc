@@ -1257,8 +1257,9 @@ dependencies = [
 
 [[package]]
 name = "gcp-calc"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
+ "base64 0.22.1",
  "hex",
  "serde",
  "serde_json",

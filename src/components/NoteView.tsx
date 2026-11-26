@@ -22,6 +22,10 @@ import {
   TrendingUp,
   MessageSquareQuote,
   ListOrdered,
+  FileText,
+  FileType,
+  Presentation,
+  Sheet,
   Sigma,
 } from 'lucide-react';
 import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState, type LineResult } from '../engine/evaluate';
@@ -34,18 +38,12 @@ import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { useT } from '../i18n';
 import { CalcEditor } from './CalcEditor';
+import type { ExportFormat } from '../export';
+import { evaluateNote, chartDataFor, type Evaluated } from '../lib/noteEval';
 import { CalloutBlock, ChartBlock, DividerBlock, HeadingBlock, ImageBlock, ProgressBlock, StickerBlock, TickerBlock } from './Blocks';
 import { IconPicker } from './IconPicker';
 import { Assistant } from './Assistant';
 import { Menu, MenuItem } from './ui';
-
-interface Evaluated {
-  perBlock: Map<string, { results: LineResult[]; firstLine: number }>;
-  progress: Map<string, { value?: LineResult; goal?: LineResult }>;
-  final: DocState;
-  context: string;
-  hasValues: boolean;
-}
 
 export function newBlock(type: BlockType, settingsBase = 'BRL', favs: string[] = []): Block {
   const id = uid();
@@ -102,58 +100,8 @@ export function NoteView({ note }: { note: Note }) {
   const [lastAdded, setLastAdded] = useState<string | null>(null);
 
   // avaliação de todos os blocos de cálculo da nota, em ordem, com variáveis compartilhadas
-  const ev: Evaluated = useMemo(() => {
-    const st = newDocState();
-    const perBlock = new Map<string, { results: LineResult[]; firstLine: number }>();
-    const progress = new Map<string, { value?: LineResult; goal?: LineResult }>();
-    const ctxLines: string[] = [];
-    let line = 1;
-    let hasValues = false;
-    for (const b of note.blocks) {
-      if (b.type === 'calc') {
-        st.group = [];
-        const results = b.text.split('\n').map((l) => evaluateLine(l, ctx, st));
-        perBlock.set(b.id, { results, firstLine: line });
-        b.text.split('\n').forEach((l, i) => {
-          const v = results[i]?.value;
-          if (v) hasValues = true;
-          ctxLines.push(v ? `${l}  → ${formatValue(v, fmt)}` : l);
-        });
-        line += results.length;
-      } else if (b.type === 'progress') {
-        const probe = (expr: string) => {
-          if (!expr.trim()) return undefined;
-          const tmp: DocState = { ...st, vars: new Map(st.vars), lines: [...st.lines], group: [...st.group] };
-          return evaluateLine(expr, ctx, tmp);
-        };
-        progress.set(b.id, { value: probe(b.value), goal: probe(b.goal) });
-      }
-    }
-    return { perBlock, progress, final: st, context: ctxLines.join('\n'), hasValues };
-  }, [note.blocks, ctx, fmt]);
-
-  const chartData = (b: Extract<Block, { type: 'chart' }>) => {
-    let src = note.blocks.find((x) => x.id === b.source && x.type === 'calc');
-    if (!src) {
-      const idx = note.blocks.indexOf(b);
-      src = [...note.blocks.slice(0, idx)].reverse().find((x) => x.type === 'calc') ?? note.blocks.find((x) => x.type === 'calc');
-    }
-    if (!src || src.type !== 'calc') return [];
-    const results = ev.perBlock.get(src.id)?.results ?? [];
-    const lines = src.text.split('\n');
-    const valued = results.map((r, i) => ({ r, line: lines[i] })).filter(({ r }) => r.kind === 'value' && r.value && !r.aggregate);
-    // prioridade: linhas com rótulo ("Mercado: 320"); depois variáveis; depois tudo
-    const labeled = valued.filter(({ r }) => r.label && !r.assigned);
-    const items = (labeled.length ? labeled : valued.filter(({ r }) => r.assigned)).map(({ r, line }) => ({ label: r.label ?? r.assigned ?? line.trim().slice(0, 20), value: r.value! }));
-    // sem rótulos: usa todas as linhas com valor
-    const fallback = items.length
-      ? items
-      : results
-          .map((r, i) => ({ r, line: lines[i] }))
-          .filter(({ r }) => r.kind === 'value' && r.value && !r.aggregate)
-          .map(({ r, line }) => ({ label: line.trim().slice(0, 20), value: r.value! }));
-    return commonValues(fallback, ctx);
-  };
+  const ev: Evaluated = useMemo(() => evaluateNote(note, ctx, fmt), [note, ctx, fmt]);
+  const chartData = (b: Extract<Block, { type: 'chart' }>) => chartDataFor(note, b, ev, ctx);
 
   const insertAfter = (afterId: string | undefined, b: Block) => {
     updateNote(note.id, (n) => {
@@ -273,6 +221,21 @@ export function NoteView({ note }: { note: Note }) {
     await saveTextFile(`${name}.${md ? 'md' : 'txt'}`, text, [{ name: md ? 'Markdown' : 'Text', extensions: [md ? 'md' : 'txt'] }]);
   };
 
+  const runExport = async (format: ExportFormat | 'xlsx-all') => {
+    toast(t('note.exporting'));
+    try {
+      const { exportNote: doExport, exportAllXlsx } = await import('../export');
+      const path =
+        format === 'xlsx-all'
+          ? await exportAllXlsx(useData.getState().notes.filter((n) => !n.deleted))
+          : await doExport(note, format);
+      if (path) toast(t('note.exported'), 'ok');
+    } catch (e) {
+      console.error(e);
+      toast(t('note.exportFail', { error: String((e as Error)?.message || e).slice(0, 120) }), 'error');
+    }
+  };
+
   const assistantHere = ui.assistant?.noteId === note.id;
   const assistantAfter = assistantHere ? (ui.assistant?.afterBlock ?? note.blocks[note.blocks.length - 1]?.id) : undefined;
 
@@ -310,6 +273,25 @@ export function NoteView({ note }: { note: Note }) {
                   }}
                 >
                   {t('note.copyAll')}
+                </MenuItem>
+                <div className="menu-sep" />
+                <div className="menu-label">
+                  <Download size={13} /> {t('note.export')}
+                </div>
+                <MenuItem icon={<FileText size={15} />} onClick={() => (runExport('pdf'), close())}>
+                  {t('note.exportPdf')}
+                </MenuItem>
+                <MenuItem icon={<FileType size={15} />} onClick={() => (runExport('docx'), close())}>
+                  {t('note.exportDocx')}
+                </MenuItem>
+                <MenuItem icon={<Presentation size={15} />} onClick={() => (runExport('pptx'), close())}>
+                  {t('note.exportPptx')}
+                </MenuItem>
+                <MenuItem icon={<Sheet size={15} />} onClick={() => (runExport('xlsx'), close())}>
+                  {t('note.exportXlsx')}
+                </MenuItem>
+                <MenuItem icon={<Sheet size={15} />} onClick={() => (runExport('xlsx-all'), close())}>
+                  {t('note.exportXlsxAll')}
                 </MenuItem>
                 <MenuItem icon={<Download size={15} />} onClick={() => (exportNote(false), close())}>
                   {t('note.exportTxt')}

@@ -24,6 +24,15 @@ pub fn write_text_file(path: String, contents: String) -> R<()> {
     std::fs::write(path, contents).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn write_binary_file(path: String, base64_data: String) -> R<()> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_data)
+        .map_err(|e| e.to_string())?;
+    std::fs::write(path, bytes).map_err(|e| e.to_string())
+}
+
 /// Nome seguro para os documentos do app (data, settings, rates).
 fn doc_path(app: &AppHandle, name: &str) -> R<PathBuf> {
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {

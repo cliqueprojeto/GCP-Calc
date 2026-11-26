@@ -92,7 +92,15 @@ jobs:
           npm run typecheck
           npm test
       - name: Build do aplicativo e instaladores
-        run: npx tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+        # nova tentativa em falhas passageiras (ex.: hdiutil "Resource busy" no macOS)
+        run: |
+          for attempt in 1 2 3; do
+            npx tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} && break
+            test "$attempt" -lt 3 || exit 1
+            echo "::warning::Build falhou (tentativa $attempt); tentando de novo."
+            if [ "$RUNNER_OS" = "macOS" ]; then hdiutil info | awk '/\/dev\/disk/{print $1}' | sort -u | xargs -n1 hdiutil detach -force 2>/dev/null || true; fi
+            sleep $((attempt * 20))
+          done
       - name: Nomear instaladores e gerar SHA-256
         run: |
           B="src-tauri/target/${{ matrix.target }}/release/bundle"
@@ -190,10 +198,19 @@ jobs:
           echo "MAIN=$MAIN" >> "$GITHUB_ENV"
       - name: Compilar APK (arm64, armv7 e x86_64)
         run: |
-          if ! npx tauri android build --apk --ci --target aarch64 armv7 x86_64; then
-            echo "::warning::A atividade Android personalizada não compilou; gerando com a atividade padrão."
+          # novas tentativas em falhas de rede do Gradle/Maven (ex.: 429 Too Many Requests)
+          build() {
+            for attempt in 1 2 3 4; do
+              npx tauri android build --apk --ci --target aarch64 armv7 x86_64 && return 0
+              echo "::warning::Build Android falhou (tentativa $attempt)."
+              sleep $((attempt * 30))
+            done
+            return 1
+          }
+          if ! build; then
+            echo "::warning::Gerando com a atividade Android padrão."
             cp /tmp/MainActivity.original.kt "$MAIN"
-            npx tauri android build --apk --ci --target aarch64 armv7 x86_64
+            build
           fi
       - name: Assinar o APK
         env:

@@ -85,6 +85,31 @@ export async function saveTextFile(defaultName: string, contents: string, filter
   return defaultName;
 }
 
+/** Salva bytes (PDF, DOCX, PPTX, XLSX) em arquivo escolhido pelo usuário. */
+export async function saveBinaryFile(defaultName: string, bytes: Uint8Array, filters: FileFilter[], mime = 'application/octet-stream'): Promise<string | null> {
+  if (isTauri) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const path = await save({ defaultPath: defaultName, filters });
+    if (!path) return null;
+    if (isMobile) {
+      const { writeFile } = await import('@tauri-apps/plugin-fs');
+      await writeFile(path, bytes);
+    } else {
+      let s = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      await invoke('write_binary_file', { path, base64Data: btoa(s) });
+    }
+    return path;
+  }
+  const blob = new Blob([bytes as BlobPart], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = defaultName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return defaultName;
+}
+
 export interface PickedFile {
   name: string;
   text: string;

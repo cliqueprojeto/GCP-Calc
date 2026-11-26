@@ -21,6 +21,7 @@ pub fn run() {
             system::data_save,
             system::read_text_file,
             system::write_text_file,
+            system::write_binary_file,
             system::platform_info,
             system::oauth_start,
             system::oauth_result,
