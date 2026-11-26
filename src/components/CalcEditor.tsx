@@ -3,8 +3,10 @@
  * de código) e, à direita, a coluna de resultados alinhada linha a linha.
  */
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { canonicalLine, isMoneyLine, regroupAtCaret } from '../lib/autoformat';
 import { Copy, RefreshCw } from 'lucide-react';
-import { AI_COMMAND, type LineResult } from '../engine/evaluate';
+import { AI_COMMAND, FUNCS, type LineResult } from '../engine/evaluate';
+import { fold } from '../engine/units';
 import { formatValue, plainNumber, type FormatOptions, type Value } from '../engine/value';
 import { copyText } from '../lib/platform';
 import { useRates } from '../lib/rates';
@@ -60,9 +62,49 @@ export interface CalcEditorProps {
   autoFocus?: boolean;
   /** "/ia pergunta" + Enter */
   onAiCommand?(lineIndex: number, question: string): void;
+  /** nomes conhecidos na nota (variáveis e seções) para o autocompletar */
+  known?: Suggestion[];
 }
 
-export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand }: CalcEditorProps) {
+export interface Suggestion {
+  kind: 'var' | 'section' | 'func' | 'kw';
+  /** texto inserido */
+  insert: string;
+  value?: Value;
+  tone?: 'income' | 'expense';
+}
+
+interface AcState {
+  items: Suggestion[];
+  sel: number;
+  start: number;
+  end: number;
+  top: number;
+  left: number;
+}
+
+const KEYWORDS = ['total', 'média', 'subtotal', 'anterior', 'em', 'de', 'hoje', 'average', 'previous', 'today', 'promedio', 'hoy'];
+const FUNC_NAMES = [...FUNCS].filter((f) => f.length > 2);
+
+/** Palavra (ou #seção) que termina no cursor. */
+function wordAt(text: string, caret: number): { start: number; word: string } | null {
+  const before = text.slice(0, caret);
+  const m = before.match(/#?[\p{L}_][\p{L}\p{N}_]*$/u) ?? before.match(/#$/);
+  if (!m) return null;
+  // não sugere no meio de uma palavra
+  if (/[\p{L}\p{N}_]/u.test(text[caret] ?? '')) return null;
+  return { start: caret - m[0].length, word: m[0] };
+}
+
+function measure(ta: HTMLTextAreaElement, s: string): number {
+  const c = (measure as unknown as { c?: CanvasRenderingContext2D }).c ?? document.createElement('canvas').getContext('2d')!;
+  (measure as unknown as { c?: CanvasRenderingContext2D }).c = c;
+  const cs = getComputedStyle(ta);
+  c.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  return c.measureText(s).width;
+}
+
+export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, known = [] }: CalcEditorProps) {
   const t = useT();
   const taRef = useRef<HTMLTextAreaElement>(null);
   const srcRef = useRef<HTMLDivElement>(null);
@@ -70,6 +112,63 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
   const lnRef = useRef<HTMLDivElement>(null);
   const [activeLine, setActiveLine] = useState(-1);
   const lineNumbers = useData((s) => s.settings.lineNumbers);
+  const autoFormat = useData((s) => s.settings.autoFormat !== false);
+  const autocomplete = useData((s) => s.settings.autocomplete !== false);
+  const [ac, setAc] = useState<AcState | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // posição do cursor aplicada logo após o React gravar o novo texto (antes da próxima tecla)
+  const pendingCaret = useRef<number | null>(null);
+  const setCaret = (pos: number) => {
+    pendingCaret.current = pos;
+  };
+  useLayoutEffect(() => {
+    const ta = taRef.current;
+    if (ta && pendingCaret.current !== null) {
+      ta.selectionStart = ta.selectionEnd = pendingCaret.current;
+      pendingCaret.current = null;
+    }
+  });
+
+  /** abre/atualiza as sugestões para a palavra no cursor */
+  const suggest = (value: string, caret: number) => {
+    const ta = taRef.current;
+    const w = autocomplete && ta ? wordAt(value, caret) : null;
+    if (!w || !ta || (!w.word.startsWith('#') && w.word.length < 2)) return setAc(null);
+    const isTag = w.word.startsWith('#');
+    const q = fold(w.word.replace(/^#/, ''));
+    const pool: Suggestion[] = isTag
+      ? known.filter((k) => k.kind === 'section')
+      : [...known, ...FUNC_NAMES.map((f): Suggestion => ({ kind: 'func', insert: f })), ...KEYWORDS.map((k): Suggestion => ({ kind: 'kw', insert: k }))];
+    const seen = new Set<string>();
+    const items = pool
+      .filter((k) => {
+        const name = fold(k.insert.replace(/^#/, ''));
+        if (seen.has(k.insert) || !name.startsWith(q) || name === q) return false;
+        seen.add(k.insert);
+        return true;
+      })
+      .slice(0, 8);
+    if (!items.length) return setAc(null);
+    const lineIdx = value.slice(0, caret).split('\n').length - 1;
+    const row = srcRef.current?.children[lineIdx] as HTMLElement | undefined;
+    const lineStart = value.lastIndexOf('\n', w.start - 1) + 1;
+    const wrapW = wrapRef.current?.clientWidth ?? 300;
+    const left = Math.max(0, Math.min(wrapW - 230, ta.offsetLeft + measure(ta, value.slice(lineStart, w.start))));
+    setAc({ items, sel: 0, start: w.start, end: caret, top: (row?.offsetTop ?? 0) + (row?.offsetHeight ?? 24), left });
+  };
+
+  const accept = (item: Suggestion) => {
+    if (!ac) return;
+    const ta = taRef.current;
+    const value = ta?.value ?? text;
+    const ins = item.kind === 'func' ? item.insert + '(' : item.insert;
+    const next = value.slice(0, ac.start) + ins + value.slice(ac.end);
+    setCaret(ac.start + ins.length);
+    onChange(next);
+    setAc(null);
+    ta?.focus();
+  };
   const refreshRates = useRates((s) => s.refresh);
   const lines = text.split('\n');
 
@@ -105,6 +204,24 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget;
+    if (ac) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const d = e.key === 'ArrowDown' ? 1 : -1;
+        setAc({ ...ac, sel: (ac.sel + d + ac.items.length) % ac.items.length });
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        accept(ac.items[ac.sel]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setAc(null);
+        return;
+      }
+    }
     // "/ia pergunta" + Enter: a IA escreve o cálculo no lugar da linha
     if (e.key === 'Enter' && !e.shiftKey && onAiCommand) {
       const idx = ta.value.slice(0, ta.selectionStart).split('\n').length - 1;
@@ -113,6 +230,26 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
         e.preventDefault();
         onAiCommand(idx, m[3].trim());
         return;
+      }
+    }
+    // Enter no fim da linha: o valor vira a forma canônica (R$ 2.000,00) e contas esperadas são preenchidas
+    if (e.key === 'Enter' && !e.shiftKey && autoFormat && ta.selectionStart === ta.selectionEnd) {
+      const s = ta.selectionStart;
+      const idx = ta.value.slice(0, s).split('\n').length - 1;
+      const lineStart = ta.value.lastIndexOf('\n', s - 1) + 1;
+      let lineEnd = ta.value.indexOf('\n', s);
+      if (lineEnd < 0) lineEnd = ta.value.length;
+      const line = ta.value.slice(lineStart, lineEnd);
+      if (!ta.value.slice(s, lineEnd).trim()) {
+        const canon = canonicalLine(line, results[idx], fmt);
+        if (canon) {
+          e.preventDefault();
+          const indent = line.match(/^\s*/)![0];
+          const next = ta.value.slice(0, lineStart) + canon + '\n' + indent + ta.value.slice(lineEnd);
+          onChange(next);
+          setCaret(lineStart + canon.length + 1 + indent.length);
+          return;
+        }
       }
     }
     // Tab recua/avança a linha como num editor de código
@@ -155,12 +292,12 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
           ))}
         </div>
       )}
-      <div className="calc-src-wrap">
+      <div className="calc-src-wrap" ref={wrapRef}>
         <div className="calc-src" ref={srcRef} aria-hidden>
           {lines.map((line, i) => {
             const r = results[i];
             return (
-              <div key={i} className={`src-line k-${r?.kind ?? 'empty'} ${i === activeLine ? 'active' : ''}`}>
+              <div key={i} className={`src-line k-${r?.kind ?? 'empty'} ${r?.tone ? 'tone-' + r.tone : ''} ${i === activeLine ? 'active' : ''}`}>
                 {r && r.segments.length ? r.segments.map((s, j) => (s.text ? <span key={j} className={`s-${s.cls}`}>{s.text}</span> : null)) : line || '​'}
                 {line === '' && '​'}
               </div>
@@ -177,19 +314,62 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
           autoComplete="off"
           placeholder={t('editor.placeholder')}
           onChange={(e) => {
-            onChange(e.target.value);
+            const ta = e.currentTarget;
+            let value = ta.value;
+            let caret = ta.selectionStart;
+            // dinheiro: separadores de milhar entram enquanto digita (conforme idioma/configuração)
+            if (autoFormat && ta.selectionStart === ta.selectionEnd && Math.abs(value.length - text.length) === 1) {
+              const idx = value.slice(0, caret).split('\n').length - 1;
+              const ls = value.lastIndexOf('\n', caret - 1) + 1;
+              let le = value.indexOf('\n', caret);
+              if (le < 0) le = value.length;
+              const prevLine = text.split('\n')[idx];
+              if (isMoneyLine(value.slice(ls, le), prevLine !== undefined && value.split('\n').length === text.split('\n').length ? results[idx] : undefined)) {
+                const g = regroupAtCaret(value, caret, fmt.decimal);
+                if (g) {
+                  value = g.text;
+                  caret = g.caret;
+                  setCaret(caret);
+                }
+              }
+            }
+            onChange(value);
             updateActive();
+            suggest(value, caret);
           }}
           onKeyDown={onKeyDown}
           onSelect={updateActive}
+          onClick={() => setAc(null)}
           onFocus={(e) => {
             lastInput = e.currentTarget;
             lastChange = onChange;
             useUi.getState().set({ focusBlock: blockId });
             updateActive();
           }}
-          onBlur={() => setActiveLine(-1)}
+          onBlur={() => {
+            setActiveLine(-1);
+            setTimeout(() => setAc(null), 150);
+          }}
         />
+        {ac && (
+          <div className="ac-pop" style={{ top: ac.top, left: ac.left }} role="listbox">
+            {ac.items.map((it, i) => (
+              <button
+                key={it.kind + it.insert}
+                className={`ac-item ${i === ac.sel ? 'on' : ''}`}
+                role="option"
+                aria-selected={i === ac.sel}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => accept(it)}
+              >
+                <span className="ac-kind">{t(`ac.${it.kind}`)}</span>
+                <span className={`ac-label ${it.tone ? 'tone-' + it.tone : ''}`}>{it.insert}</span>
+                {it.value && <span className="ac-detail">{formatValue(it.value, fmt)}</span>}
+              </button>
+            ))}
+            <div className="ac-hint">{t('ac.hint')}</div>
+          </div>
+        )}
       </div>
       <div className="calc-res" ref={resRef}>
         {lines.map((_, i) => {
@@ -198,7 +378,7 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
           if (r.kind === 'value' && r.value) {
             const s = formatValue(r.value, fmt);
             return (
-              <div key={i} className={`res ${r.assigned ? 'assigned' : ''} ${r.aggregate ? 'aggregate' : ''} ${i === activeLine ? 'active' : ''}`}>
+              <div key={i} className={`res ${r.assigned ? 'assigned' : ''} ${r.aggregate ? 'aggregate' : ''} ${r.tone ? 'tone-' + r.tone : ''} ${i === activeLine ? 'active' : ''}`}>
                 <button className="res-val" title={t('editor.clickToCopy')} onClick={() => copyResult(r.value!)}>
                   <span>{s}</span>
                   <Copy size={12} className="res-copy" />

@@ -28,7 +28,15 @@ import {
   Presentation,
   Sheet,
   Sigma,
+  LayoutTemplate,
+  ListTree,
+  ChartColumnBig,
 } from 'lucide-react';
+import { SaveTemplateModal } from './TemplateDialogs';
+import { OrganizeModal } from './OrganizeModal';
+import { CompareBlock } from './CompareBlock';
+import { fold } from '../engine/units';
+import type { Suggestion } from './CalcEditor';
 import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState, type LineResult } from '../engine/evaluate';
 import { formatValue, plainNumber } from '../engine/value';
 import { formatOptions, useEvalContext } from '../lib/calcContext';
@@ -68,6 +76,8 @@ export function newBlock(type: BlockType, settingsBase = 'BRL', favs: string[] =
       return { id, type, label: '', value: '', goal: '', color: '#10b981' };
     case 'ticker':
       return { id, type, codes: favs.filter((c) => c !== settingsBase).slice(0, 4) };
+    case 'compare':
+      return { id, type, sources: ['self'], only: 'all' };
   }
 }
 
@@ -99,11 +109,23 @@ export function NoteView({ note }: { note: Note }) {
   const { updateNote, updateBlock, trashNote, duplicateNote, folders, settings } = useData();
   const ui = useUi();
   const [iconFor, setIconFor] = useState<null | 'note' | string>(null);
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [organizing, setOrganizing] = useState<string | null>(null);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const noteRef = useRef<HTMLDivElement>(null);
 
   // avaliação de todos os blocos de cálculo da nota, em ordem, com variáveis compartilhadas
   const ev: Evaluated = useMemo(() => evaluateNote(note, ctx, fmt), [note, ctx, fmt]);
+  // nomes da nota para o autocompletar: variáveis/rótulos (com valor) e seções #
+  const known: Suggestion[] = useMemo(() => {
+    const out: Suggestion[] = [];
+    for (const [, { results }] of ev.perBlock)
+      for (const r of results) {
+        if (r.kind === 'header' && r.section && !/\s/.test(r.section)) out.push({ kind: 'section', insert: '#' + r.section.replace(/\s+/g, ''), tone: r.tone });
+        else if (r.kind === 'value' && r.label && !r.label.includes('#') && /^[\p{L}_][\p{L}\p{N}_ ]*$/u.test(r.label)) out.push({ kind: 'var', insert: r.label, value: r.value, tone: r.tone });
+      }
+    return out.reverse();
+  }, [ev]);
   const chartData = (b: Extract<Block, { type: 'chart' }>) => chartDataFor(note, b, ev, ctx);
 
   const insertAfter = (afterId: string | undefined, b: Block) => {
@@ -123,6 +145,13 @@ export function NoteView({ note }: { note: Note }) {
     }
     insertAfter(afterId, b);
     if (type === 'sticker') setIconFor(b.id);
+    if (b.type === 'compare') {
+      // começa comparando com a nota parecida mais recente (ex.: o orçamento do mês passado)
+      const others = useData.getState().notes.filter((n) => !n.deleted && n.id !== note.id).sort((a, c) => c.updated - a.updated);
+      const word = fold(note.title.split(/\s+/)[0] ?? '');
+      const similar = others.find((n) => word && fold(n.title).startsWith(word)) ?? others.find((n) => n.icon === note.icon) ?? others[0];
+      if (similar) b.sources = [similar.id, 'self'];
+    }
   };
 
   const moveBlock = (id: string, dir: -1 | 1) =>
@@ -169,6 +198,7 @@ export function NoteView({ note }: { note: Note }) {
     { type: 'chart', icon: <ChartPie size={15} />, label: t('block.chart') },
     { type: 'progress', icon: <Target size={15} />, label: t('block.progress') },
     { type: 'ticker', icon: <TrendingUp size={15} />, label: t('block.ticker') },
+    { type: 'compare', icon: <ChartColumnBig size={15} />, label: t('block.compare') },
     { type: 'callout', icon: <MessageSquareQuote size={15} />, label: t('block.callout') },
     { type: 'image', icon: <Image size={15} />, label: t('block.image') },
     { type: 'sticker', icon: <Smile size={15} />, label: t('block.sticker') },
@@ -364,6 +394,9 @@ export function NoteView({ note }: { note: Note }) {
                 <MenuItem icon={<Download size={15} />} onClick={() => (exportNote(true), close())}>
                   {t('note.exportMd')}
                 </MenuItem>
+                <MenuItem icon={<LayoutTemplate size={15} />} onClick={() => (setSavingTpl(true), close())}>
+                  {t('tpl.saveAs')}
+                </MenuItem>
                 <MenuItem
                   icon={<CopyPlus size={15} />}
                   onClick={() => {
@@ -424,6 +457,7 @@ export function NoteView({ note }: { note: Note }) {
                   onChange={(text) => set({ text })}
                   autoFocus={lastAdded === b.id}
                   onAiCommand={(line, q) => runInlineAi(b.id, line, q)}
+                  known={known}
                 />
               );
               break;
@@ -454,6 +488,9 @@ export function NoteView({ note }: { note: Note }) {
             case 'heading':
               body = <HeadingBlock block={b} onChange={set} />;
               break;
+            case 'compare':
+              body = <CompareBlock note={note} block={b} ctx={ctx} fmt={fmt} ev={ev} onChange={set} />;
+              break;
           }
           const sum = b.type === 'calc' ? blockSum(b.id) : null;
           return (
@@ -467,6 +504,11 @@ export function NoteView({ note }: { note: Note }) {
                   <button className="ins-btn" disabled={idx === note.blocks.length - 1} onClick={() => moveBlock(b.id, 1)} title={t('block.down')}>
                     <ArrowDown size={13} />
                   </button>
+                  {b.type === 'calc' && (
+                    <button className="ins-btn" onClick={() => setOrganizing(b.id)} title={t('org.title')}>
+                      <ListTree size={13} />
+                    </button>
+                  )}
                   <button className="ins-btn danger" onClick={() => removeBlock(b.id)} title={t('block.remove')}>
                     <Trash2 size={13} />
                   </button>
@@ -509,6 +551,25 @@ export function NoteView({ note }: { note: Note }) {
         <InsertMenu big />
       </div>
 
+      {organizing && (() => {
+        const ob = note.blocks.find((x) => x.id === organizing);
+        if (!ob || ob.type !== 'calc') return null;
+        return (
+          <OrganizeModal
+            text={ob.text}
+            results={ev.perBlock.get(ob.id)?.results ?? []}
+            ctx={ctx}
+            fmt={fmt}
+            noteContext={ev.context}
+            onApply={(text) => {
+              updateBlock(note.id, ob.id, { text });
+              toast(t('org.done'), 'ok');
+            }}
+            onClose={() => setOrganizing(null)}
+          />
+        );
+      })()}
+      {savingTpl && <SaveTemplateModal note={note} open onClose={() => setSavingTpl(false)} />}
       <IconPicker
         open={!!iconFor}
         onClose={() => setIconFor(null)}

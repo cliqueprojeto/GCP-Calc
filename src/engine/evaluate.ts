@@ -79,7 +79,7 @@ const EXACT: Record<string, Kw> = { más: { k: 'op', op: '+' } };
 /** Palavras de escala que dependem do idioma (em PT "2 mi" = 2 milhões; em EN "mi" = milha). */
 const PT_SCALE: Record<string, number> = { mi: 1e6, bi: 1e9, tri: 1e12 };
 
-const FUNCS = new Set([
+export const FUNCS = new Set([
   'sqrt', 'raiz', 'cbrt', 'abs', 'round', 'arredondar', 'arredonda', 'redondear', 'ceil', 'teto', 'floor', 'piso', 'trunc',
   'sin', 'sen', 'seno', 'cos', 'cosseno', 'coseno', 'tan', 'tg', 'asin', 'arcsen', 'acos', 'atan', 'arctg', 'log', 'log2', 'ln', 'exp',
   'fact', 'fatorial', 'factorial', 'min', 'max', 'avg', 'mean', 'sum', 'pmt', 'parcela', 'cuota', 'fv', 'vf', 'pv', 'vp', 'root',
@@ -93,7 +93,7 @@ const FUNC_ALIAS: Record<string, string> = {
 
 // --------------------------------------------------------------- tokens
 
-export type Cls = 'num' | 'unit' | 'cur' | 'op' | 'var' | 'func' | 'kw' | 'cmt' | 'hdr' | 'label' | 'text' | 'tag' | 'date' | 'assign' | 'paren';
+export type Cls = 'num' | 'unit' | 'cur' | 'op' | 'var' | 'func' | 'kw' | 'cmt' | 'hdr' | 'label' | 'text' | 'tag' | 'date' | 'assign' | 'paren' | 'section' | 'ghost';
 
 export interface Segment {
   text: string;
@@ -116,6 +116,7 @@ type Tok =
   | { k: 'func'; name: string }
   | { k: 'ufunc'; name: string }
   | { k: 'line'; n: number }
+  | { k: 'section'; name: string }
   | Kw;
 
 interface Raw {
@@ -211,7 +212,46 @@ interface Scope {
   group: Value[];
   prev?: Value;
   lines: (Value | undefined)[];
+  sections?: Map<string, Section>;
 }
+
+/** Seção nomeada (#Receitas): soma das linhas abaixo do título. */
+export interface Section {
+  name: string;
+  values: Value[];
+  tone?: Tone;
+}
+
+export type Tone = 'income' | 'expense';
+
+const INCOME_RE = /receit|renda|entrad|ganho|sal[aá]ri|faturament|vendas?\b|cr[eé]dito|income|revenue|earning|sales|ingres|ventas|cobro/i;
+const EXPENSE_RE = /despes|gasto|custo|sa[ií]da|pagament|contas\b|d[eé]bito|expense|cost|spend|bills|outgo|egreso|pagos/i;
+
+/** Receita (verde) ou despesa (vermelho), pelo nome da seção ou pelo sinal da soma. */
+export function sectionTone(name: string, values: Value[] = []): Tone | undefined {
+  if (EXPENSE_RE.test(name)) return 'expense';
+  if (INCOME_RE.test(name)) return 'income';
+  const money = values.filter((v) => v.unit?.dim === 'money');
+  if (money.length && money.every((v) => v.n < 0)) return 'expense';
+  return undefined;
+}
+
+/**
+ * Valores que somam numa seção. Em despesas, lançamentos com e sem sinal de menos
+ * ("Mercado: R$ 100" e "Farmácia: -R$ 85") são todos gastos: usam o sinal da maioria.
+ */
+export function sectionValues(sec: Section): Value[] {
+  if (sec.tone !== 'expense') return sec.values;
+  const money = sec.values.filter((v) => v.n !== 0);
+  const neg = money.filter((v) => v.n < 0).length;
+  if (!neg || neg === money.length) return sec.values;
+  const sign = neg > money.length / 2 ? -1 : 1;
+  return sec.values.map((v) => ({ ...v, n: sign * Math.abs(v.n) }));
+}
+
+/** Rótulos que são quantidades, nunca dinheiro ("pessoas: 2", "dias: 8"). */
+const QUANTITY_RE = /(^|[^\p{L}])(qtd|qtde|quant\p{L}*|pessoas?|dias?|meses|m[eê]s|anos?|horas?|minutos?|semanas?|unidades?|un|itens|item|vezes|por[cç][oõ]es|pe[cç]as|pcs|parcelas?|presta[cç][oõ]es|alunos|convidados|ingressos|lugares|people|persons?|guests|days?|weeks?|months?|years?|hours?|minutes?|units?|items?|times|servings?|qty|pieces|tickets|seats|installments|personas?|d[ií]as|a[nñ]os|cantidad|veces|porciones|cuotas|entradas|invitados)(?![\p{L}])/iu;
+export const isQuantityLabel = (label: string) => QUANTITY_RE.test(label);
 
 /** Ligação entre os pedaços brutos e os tokens: devolve tokens e a coloração da linha. */
 function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; segs: Segment[] } {
@@ -222,7 +262,7 @@ function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; se
   const lastTok = () => toks[toks.length - 1];
   const valueEnded = () => {
     const t = lastTok();
-    return !!t && ['num', 'rp', 'unit', 'cur', 'var', 'pct', 'scale', 'dateLit', 'date', 'agg', 'const', 'line', 'fact', 'sq', 'pctword'].includes(t.k);
+    return !!t && ['num', 'rp', 'unit', 'cur', 'var', 'pct', 'scale', 'dateLit', 'date', 'agg', 'const', 'line', 'fact', 'sq', 'pctword', 'section'].includes(t.k);
   };
 
   for (let i = 0; i < raws.length; i++) {
@@ -246,6 +286,12 @@ function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; se
         continue;
       case 'tag': {
         const name = tagNames.get(fold(r.s.slice(1)));
+        const sec = !name ? scope.sections?.get(fold(r.s.slice(1))) : undefined;
+        if (sec) {
+          toks.push({ k: 'section', name: fold(r.s.slice(1)) });
+          seg(r.s, 'section');
+          continue;
+        }
         const code = name ?? findCurrency(r.s.slice(1));
         if (code) {
           toks.push({ k: 'cur', code, prefixOk: true });
@@ -385,7 +431,7 @@ function nextIsTarget(e: ClassifyEnv): boolean {
   return !!(findUnit(r.s, true) || findCurrency(r.s) || (KW[f] && KW[f].k === 'fmt') || e.tagNames.has(f));
 }
 
-const ENDS_VALUE = new Set(['num', 'rp', 'unit', 'cur', 'var', 'pct', 'scale', 'dateLit', 'date', 'agg', 'const', 'line', 'fact', 'sq', 'pctword']);
+const ENDS_VALUE = new Set(['num', 'rp', 'unit', 'cur', 'var', 'pct', 'scale', 'dateLit', 'date', 'agg', 'const', 'line', 'fact', 'sq', 'pctword', 'section']);
 const STARTS_TARGET = new Set(['unit', 'cur', 'fmt', 'pct']);
 
 /** Remove palavras-chave que ficaram fora de contexto (ex.: "a" e "de" no meio do texto). */
@@ -416,7 +462,7 @@ function tidy(toks: Tok[]): Tok[] {
         // operador sem valor antes ("com leite", "+5"): ignora
         continue;
       }
-      if (t.k === 'agg' && next && (next.k === 'num' || next.k === 'cur' || next.k === 'var')) {
+      if (t.k === 'agg' && next && (next.k === 'num' || next.k === 'cur' || next.k === 'var' || next.k === 'section')) {
         // "total 500", "média 7": aqui a palavra é rótulo, não total
         continue;
       }
@@ -518,7 +564,11 @@ class Parser {
       if (p?.k === 'op' && (p.op === '+' || p.op === '-')) {
         this.i++;
         if (!this.peek() || this.isTerminator()) break;
-        const r = this.multiplicative();
+        const first = this.peek();
+        const at = this.i;
+        let r = this.multiplicative();
+        // "#Receitas - #Despesas": despesas lançadas como negativas entram pelo valor absoluto
+        if (p.op === '-' && first?.k === 'section' && this.i === at + 1 && r.n < 0) r = neg(r);
         v = add(v, r, p.op === '+' ? 1 : -1, this.ctx);
       } else break;
     }
@@ -531,7 +581,7 @@ class Parser {
   }
 
   startsPrimary(p?: Tok) {
-    return !!p && ['num', 'lp', 'var', 'const', 'func', 'ufunc', 'dateLit', 'date', 'agg', 'line'].includes(p.k);
+    return !!p && ['num', 'lp', 'var', 'const', 'func', 'ufunc', 'dateLit', 'date', 'agg', 'line', 'section'].includes(p.k);
   }
 
   multiplicative(): Value {
@@ -693,6 +743,11 @@ class Parser {
       }
       case 'agg':
         return this.aggregate(p.name);
+      case 'section': {
+        this.usedAggregate = true;
+        const sec = this.scope.sections?.get(p.name);
+        return this.aggregate('sum', sec ? sectionValues(sec) : []);
+      }
       case 'func':
         return callFunc(p.name, this.args(), this.ctx);
       case 'ufunc':
@@ -708,9 +763,9 @@ class Parser {
     }
   }
 
-  aggregate(name: 'sum' | 'avg' | 'prev' | 'min' | 'max' | 'count'): Value {
+  aggregate(name: 'sum' | 'avg' | 'prev' | 'min' | 'max' | 'count', from?: Value[]): Value {
     if (name !== 'prev') this.usedAggregate = true;
-    const g = this.scope.group.filter((v) => !v.date);
+    const g = (from ?? this.scope.group).filter((v) => !v.date);
     if (name === 'prev') {
       if (!this.scope.prev) throw new CalcError('noprev');
       return { ...this.scope.prev };
@@ -886,6 +941,14 @@ export interface LineResult {
   assigned?: string;
   /** a linha é um total/média (não entra no total seguinte) */
   aggregate?: boolean;
+  /** título de seção (#Receitas): nome exibido */
+  section?: string;
+  /** receita (verde) ou despesa (vermelho) */
+  tone?: Tone;
+  /** moeda deduzida do contexto ("Flora: 2.000" numa seção em reais) */
+  inferred?: string;
+  /** posição onde começa o valor literal/esperado — o Enter reescreve dali em diante */
+  fill?: number;
 }
 
 export interface DocResult {
@@ -903,10 +966,52 @@ export interface DocState {
   lines: (Value | undefined)[];
   group: Value[];
   prev?: Value;
+  sections: Map<string, Section>;
+  /** seção atual (chave) */
+  section?: string;
 }
 
 export function newDocState(): DocState {
-  return { vars: new Map(), funcs: new Map(), lines: [], group: [] };
+  return { vars: new Map(), funcs: new Map(), lines: [], group: [], sections: new Map() };
+}
+
+/** "#Receitas", "# Despesas do mês", "## Total:" → nome da seção */
+const SECTION_RE = /^(?:#+\s+([\p{L}_][\p{L}\p{N}_ ]*?)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
+/** "Total #Receitas: R$ 6.000" ou "#Receitas - #Despesas = 5.700": conta à esquerda, valor esperado à direita */
+const EXPECT_RE = /^(\s*)([^=:]*#[\p{L}_][^=:]*?)(\s*[=:]\s*)(.*)$/u;
+/** "Sobra %", "Sobra % = xx %": percentual sobre as receitas */
+const PCT_LINE_RE = /^(\s*)([\p{L}_][\p{L}\p{N}_ ]*?)(\s*%)(\s*(?:[=:].*)?)$/u;
+
+/** Moeda mais recente da seção atual (ou do bloco). */
+function contextCurrency(st: DocState): string | undefined {
+  const pool = [...(st.section ? st.sections.get(st.section)?.values ?? [] : []), ...st.group];
+  for (let i = pool.length - 1; i >= 0; i--) if (pool[i].unit?.dim === 'money') return pool[i].unit!.currency;
+  // seção de receitas/despesas ainda vazia: usa a moeda das outras seções
+  const sec = st.section ? st.sections.get(st.section) : undefined;
+  if (sec && sectionTone(sec.name)) {
+    for (const other of [...st.sections.values()].reverse()) {
+      const m = [...other.values].reverse().find((v) => v.unit?.dim === 'money');
+      if (m) return m.unit!.currency;
+    }
+  }
+  return undefined;
+}
+
+/** Base do percentual: a maior seção de receitas (ou a maior soma positiva). */
+function incomeBase(st: DocState, ctx: EvalContext): Value | undefined {
+  let best: Value | undefined;
+  let bestIncome = false;
+  for (const sec of st.sections.values()) {
+    if (!sec.values.length) continue;
+    const sum = aggregateValues(sectionValues(sec), 'sum', ctx);
+    const income = sectionTone(sec.name, sec.values) === 'income';
+    if (sum.n <= 0) continue;
+    if (!best || (income && !bestIncome) || (income === bestIncome && sum.n > best.n)) {
+      best = sum;
+      bestIncome = income;
+    }
+  }
+  return best;
 }
 
 /** Avalia uma linha mantendo o estado do documento (variáveis, grupo para totais etc.). */
@@ -916,20 +1021,70 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     st.lines.push(r.value);
     if (r.kind === 'empty' || r.kind === 'header') st.group = [];
     if (r.value && r.kind === 'value') {
-      if (!r.aggregate) st.group.push(r.value);
+      // quantidades ("pessoas: 2") não entram na soma de valores
+      const qty = !r.value.unit && !!r.label && isQuantityLabel(r.label);
+      if (!r.aggregate && !qty) {
+        st.group.push(r.value);
+        const sec = st.section ? st.sections.get(st.section) : undefined;
+        if (sec && !r.assigned) {
+          sec.values.push(r.value);
+          sec.tone = sectionTone(sec.name, sec.values);
+        }
+      }
       st.prev = r.value;
+    }
+    // cor: receitas em verde, despesas em vermelho
+    if (r.kind === 'value' && r.value?.unit?.dim === 'money' && !r.tone) {
+      const sec = st.section && !r.aggregate ? st.sections.get(st.section) : undefined;
+      if (r.value.n < 0) r.tone = 'expense';
+      else if (sec?.tone) r.tone = sec.tone;
     }
     return r;
   };
   if (!trimmed) return push({ kind: 'empty', segments: line ? [{ text: line, cls: 'text' }] : [] });
-  if (/^#+(\s|$)/.test(trimmed)) return push({ kind: 'header', segments: [{ text: line, cls: 'hdr' }] });
+  const smRaw = trimmed.match(SECTION_RE);
+  // "#BRL" ou uma tag de moeda sozinha não é título
+  const sm = smRaw && (smRaw[1] || !(findCurrency(smRaw[2]) || ctx.tags.some((t) => fold(t.name) === fold(smRaw[2])))) ? [smRaw[0], (smRaw[1] ?? smRaw[2]).trim()] : null;
+  if (sm || /^#+(\s|$)/.test(trimmed)) {
+    if (sm) {
+      const name = sm[1].trim();
+      const key = fold(name);
+      // título repetido continua a mesma seção
+      if (!st.sections.has(key)) st.sections.set(key, { name, values: [], tone: sectionTone(name) });
+      st.section = key;
+    } else st.section = undefined;
+    const tone = sm ? st.sections.get(fold(sm[1].trim()))?.tone : undefined;
+    return push({ kind: 'header', segments: [{ text: line, cls: 'hdr' }], section: sm?.[1].trim(), tone });
+  }
   if (/^\/\//.test(trimmed)) return push({ kind: 'comment', segments: [{ text: line, cls: 'cmt' }] });
   const cmd = line.match(AI_COMMAND);
   if (cmd) {
     return push({ kind: 'command', segments: [{ text: cmd[1], cls: 'text' }, { text: cmd[2], cls: 'func' }, { text: cmd[3] ?? '', cls: 'kw' }] });
   }
 
-  const scope: Scope = { vars: st.vars, funcs: st.funcs, group: st.group, prev: st.prev, lines: st.lines };
+  const scope: Scope = { vars: st.vars, funcs: st.funcs, group: st.group, prev: st.prev, lines: st.lines, sections: st.sections };
+
+  // "Sobra %": percentual de um valor (ou da linha anterior) sobre as receitas
+  const pm = line.match(PCT_LINE_RE);
+  if (pm && !findUnit(pm[2].trim()) && (st.vars.has(fold(pm[2].trim())) || st.prev)) {
+    const v = st.vars.get(fold(pm[2].trim())) ?? st.prev!;
+    const base = incomeBase(st, ctx);
+    const segments: Segment[] = [
+      { text: pm[1], cls: 'text' },
+      { text: pm[2], cls: 'label' },
+      { text: pm[3], cls: 'op' },
+      { text: pm[4], cls: 'ghost' },
+    ];
+    if (!base) return push({ kind: 'text', segments });
+    try {
+      const value: Value = { n: div({ ...v, pct: false }, base, ctx).n, pct: true };
+      const fill = pm[4].trim() ? pm[1].length + pm[2].length + pm[3].length + (pm[4].match(/^\s*[=:]\s*/)?.[0].length ?? 0) : undefined;
+      return push({ kind: 'value', value, segments, label: pm[2].trim(), fill, aggregate: true });
+    } catch {
+      return push({ kind: 'error', error: 'incompatible', segments });
+    }
+  }
+
   const pre: Segment[] = [];
   let body = line;
   let label: string | undefined;
@@ -948,8 +1103,15 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     });
   }
 
-  const am = line.match(ASSIGN_RE);
-  if (am && !/^\s*\d/.test(am[2])) {
+  let fill: number | undefined;
+  const xm = line.match(EXPECT_RE);
+  const refsSection = xm && [...xm[2].matchAll(/#([\p{L}\p{N}_]+)/gu)].some((m) => st.sections.has(fold(m[1])));
+  const am = refsSection ? null : line.match(ASSIGN_RE);
+  if (xm && refsSection) {
+    // a conta está à esquerda; o que vem depois do "=" ou ":" é só o valor esperado
+    body = xm[1] + xm[2];
+    fill = xm[1].length + xm[2].length + xm[3].length;
+  } else if (am && !/^\s*\d/.test(am[2])) {
     assign = fold(am[2].trim());
     pre.push({ text: am[1], cls: 'text' }, { text: am[2], cls: 'assign' }, { text: am[3], cls: 'op' });
     body = am[4];
@@ -964,9 +1126,10 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
 
   const { toks, segs } = resolve(rawLex(body, ctx), ctx, scope);
   const segments = [...pre, ...segs];
+  if (xm && refsSection) segments.push({ text: xm[3], cls: 'op' }, { text: xm[4], cls: 'ghost' });
   if (!toks.length) return push({ kind: 'text', segments, label });
   // linha só de texto com palavras-chave soltas (sem número nem variável) não gera resultado
-  if (!toks.some((t) => ['num', 'var', 'const', 'dateLit', 'date', 'agg', 'line', 'func', 'ufunc', 'cur'].includes(t.k))) {
+  if (!toks.some((t) => ['num', 'var', 'const', 'dateLit', 'date', 'agg', 'line', 'func', 'ufunc', 'cur', 'section'].includes(t.k))) {
     return push({ kind: 'text', segments, label });
   }
   try {
@@ -976,10 +1139,27 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
       /* infinito é exibido */
     }
     if (Number.isNaN(value.n)) throw new CalcError('domain');
+    // linha de lançamento só com número: a moeda vem do contexto ("Flora: 2.000" entre valores em R$),
+    // mas quantidades ("pessoas: 2", "dias: 8") continuam números
+    let inferred: string | undefined;
+    const literal = toks.every((t) => t.k === 'num' || t.k === 'cur' || (t.k === 'op' && t.op === '-'));
+    if (literal && label && !value.unit && !value.pct && !value.date && !value.fmt && !isQuantityLabel(label)) {
+      const code = contextCurrency(st);
+      if (code) {
+        value.unit = currencyUnit(code);
+        inferred = code;
+      }
+    }
+    if (literal && toks.some((t) => t.k === 'num') && value.unit?.dim === 'money' && fill === undefined) {
+      fill = line.length - body.length + (body.length - body.trimStart().length);
+    }
     if (assign) st.vars.set(assign, value);
     // rótulos também viram variáveis ("Aluguel: 1.500" → "Aluguel * 12")
     else if (label && !findUnit(label) && !KW[fold(label)]) st.vars.set(fold(label), value);
-    return push({ kind: 'value', value, segments, label: label ?? (assign ? am![2].trim() : undefined), assigned: assign, aggregate: parser.usedAggregate });
+    if (refsSection && !label) label = xm![2].trim();
+    const secToks = toks.filter((t): t is { k: 'section'; name: string } => t.k === 'section');
+    const tone = secToks.length === 1 && toks.filter((t) => t.k !== 'agg').length === 1 ? st.sections.get(secToks[0].name)?.tone : undefined;
+    return push({ kind: 'value', value, segments, label: label ?? (assign ? am![2].trim() : undefined), assigned: assign, tone, aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill });
   } catch (e) {
     const code = e instanceof CalcError ? e.code + (e.detail ? `:${e.detail}` : '') : 'syntax';
     return push({ kind: 'error', error: code, segments, label });
@@ -997,7 +1177,7 @@ export function currenciesIn(text: string, ctx: EvalContext): Set<string> {
   const out = new Set<string>();
   const st = newDocState();
   for (const line of text.split('\n')) {
-    const { toks } = resolve(rawLex(line, ctx), ctx, { vars: st.vars, funcs: st.funcs, group: [], lines: [] });
+    const { toks } = resolve(rawLex(line, ctx), ctx, { vars: st.vars, funcs: st.funcs, group: [], lines: [], sections: st.sections });
     for (const t of toks) if (t.k === 'cur') out.add(t.code);
   }
   return out;

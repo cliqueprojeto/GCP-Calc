@@ -13,7 +13,9 @@ export type Block =
   | { id: string; type: 'callout'; text: string; color: string; icon: string }
   | { id: string; type: 'sticker'; emoji: string; size: number; align: 'left' | 'center' | 'right' }
   | { id: string; type: 'progress'; label: string; value: string; goal: string; color: string }
-  | { id: string; type: 'ticker'; codes: string[] };
+  | { id: string; type: 'ticker'; codes: string[] }
+  /** relatório comparativo entre notas (ex.: orçamento do mês passado × este mês); "self" = a própria nota */
+  | { id: string; type: 'compare'; sources: string[]; title?: string; only?: 'all' | 'sections' };
 
 export type BlockType = Block['type'];
 
@@ -101,6 +103,10 @@ export interface Settings {
   ratesOnOpen: boolean;
   ratesMaxAge: number;
   lineNumbers: boolean;
+  /** separadores e moeda automáticos ao digitar / dar Enter */
+  autoFormat?: boolean;
+  /** sugestões de variáveis, seções e funções enquanto digita */
+  autocomplete?: boolean;
   keypad: 'auto' | 'on' | 'off';
   resultColors: boolean;
   ai: { providers: AiProvider[]; active?: string; inline: boolean };
@@ -127,6 +133,21 @@ export interface DataDoc {
   notes: Note[];
   folders: Folder[];
   tags: Tag[];
+  /** modelos criados pelo usuário (ou importados de outros usuários) */
+  templates?: UserTemplate[];
+}
+
+/** Modelo do usuário: a nota completa (blocos, gráficos, ícone e cores). */
+export interface UserTemplate {
+  id: string;
+  title: string;
+  desc: string;
+  icon: string;
+  color: string;
+  blocks: Block[];
+  author?: string;
+  updated: number;
+  deleted?: number;
 }
 
 export interface RatesDoc {

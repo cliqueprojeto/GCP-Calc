@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateDocument, parseNumber } from '../src/engine/evaluate';
+import { canonicalLine, regroupAtCaret } from '../src/lib/autoformat';
 import { defaultContext, formatValue, type EvalContext } from '../src/engine/value';
 
 const rates = { BRL: 5, EUR: 0.9, GBP: 0.8, JPY: 150, BTC: 0.00001 };
@@ -218,5 +219,120 @@ describe('IA: comando /ia e erros passageiros', () => {
     expect(isTransient({ status: 529, message: 'overloaded' })).toBe(true);
     expect(isTransient(new Error('429: Too Many Requests'))).toBe(true);
     expect(isTransient(new Error('401: invalid x-api-key'))).toBe(false);
+  });
+});
+
+describe('seções, moeda por contexto e formatação', () => {
+  const example = [
+    '#Receitas',
+    'Bruno: R$ 4.000',
+    'Flora: 2.000',
+    'Total #Receitas: R$ 6.000,00',
+    '#Despesas',
+    'Verdemar: -R$ 100,00',
+    'Unimed: - R$ 200,00',
+    'Total #Receitas - #Despesas = R$ 5.700',
+    'Sobra % = xxx %',
+  ].join('\n');
+  it('exemplo de receitas e despesas', () => {
+    const r = run(example);
+    expect(r[2]).toBe('R$ 2.000,00');
+    expect(r[3]).toBe('R$ 6.000,00');
+    expect(r[5]).toBe('-R$ 100,00');
+    expect(r[6]).toBe('-R$ 200,00');
+    expect(r[7]).toBe('R$ 5.700,00');
+    expect(r[8]).toBe('95%');
+  });
+  it('receitas verdes, despesas vermelhas', () => {
+    const doc = evaluateDocument(example, defaultContext({ rates }));
+    expect(doc.lines[0].tone).toBe('income');
+    expect(doc.lines[1].tone).toBe('income');
+    expect(doc.lines[4].tone).toBe('expense');
+    expect(doc.lines[6].tone).toBe('expense');
+  });
+  it('despesas positivas também são descontadas', () => {
+    const r = run(['#Entradas', 'Salário: R$ 3.000', '#Gastos', 'Aluguel: 1.200', 'saldo = #Entradas - #Gastos', 'Total #Gastos'].join('\n'));
+    expect(r[3]).toBe('R$ 1.200,00');
+    expect(r[4]).toBe('R$ 1.800,00');
+    expect(r[5]).toBe('R$ 1.200,00');
+  });
+  it('quantidades não viram moeda', () => {
+    const r = run(['Hotel: R$ 300', 'pessoas: 2', 'dias: 4', 'Jantar: 150', 'total'].join('\n'));
+    expect(r[1]).toBe('2');
+    expect(r[2]).toBe('4');
+    expect(r[3]).toBe('R$ 150,00');
+    expect(r[4]).toBe('R$ 450,00');
+  });
+  it('título com tag de moeda não vira seção', () => {
+    expect(run('#BRL 10')[0]).toBe('R$ 10,00');
+  });
+  it('separadores enquanto digita', () => {
+    expect(regroupAtCaret('R$ 4000', 7, 'comma')).toEqual({ text: 'R$ 4.000', caret: 8 });
+    expect(regroupAtCaret('R$ 4.0000', 9, 'comma')).toEqual({ text: 'R$ 40.000', caret: 9 });
+    expect(regroupAtCaret('R$ 1234,5', 9, 'comma')).toEqual({ text: 'R$ 1.234,5', caret: 10 });
+    expect(regroupAtCaret('$1234.5', 7, 'dot')).toEqual({ text: '$1,234.5', caret: 8 });
+    expect(regroupAtCaret('R$ 400', 6, 'comma')).toBeNull();
+    expect(regroupAtCaret('2026-11-26', 4, 'comma')).toBeNull();
+  });
+  it('forma canônica ao dar Enter', () => {
+    const ctx = defaultContext({ rates });
+    const fmt = { decimal: ctx.decimal, grouping: true, precision: 4, lang: ctx.lang, currencyPosition: 'before' as const, tags: [] };
+    const lines = example.split('\n');
+    const doc = evaluateDocument(example, ctx);
+    const canon = lines.map((l, i) => canonicalLine(l, doc.lines[i], fmt) ?? l);
+    expect(canon[1]).toBe('Bruno: R$ 4.000,00');
+    expect(canon[2]).toBe('Flora: R$ 2.000,00');
+    expect(canon[6]).toBe('Unimed: -R$ 200,00');
+    expect(canon[7]).toBe('Total #Receitas - #Despesas = R$ 5.700,00');
+    expect(canon[8]).toBe('Sobra % = 95%');
+  });
+});
+
+describe('organizar', () => {
+  it('separa receitas e despesas com totais e saldo', async () => {
+    const { organizeText } = await import('../src/lib/organize');
+    const ctx = defaultContext({ rates });
+    const fmt = { decimal: ctx.decimal, grouping: true, precision: 4, lang: ctx.lang, currencyPosition: 'before' as const, tags: [] };
+    const text = ['Salário: R$ 3.000', 'Aluguel: 1.200', 'Freela: 800', 'Mercado: -450', 'pessoas: 2', 'total'].join('\n');
+    const org = organizeText(text, evaluateDocument(text, ctx).lines, fmt, 'pt');
+    expect(org).toBe(
+      ['pessoas: 2', '', '#Receitas', 'Salário: R$ 3.000,00', 'Freela: R$ 800,00', 'Total #Receitas', '', '#Despesas', 'Aluguel: R$ 1.200,00', 'Mercado: R$ 450,00', 'Total #Despesas', '', 'Saldo: #Receitas - #Despesas', 'Saldo %'].join('\n'),
+    );
+    const r = run(org);
+    expect(r[5]).toBe('R$ 3.800,00');
+    expect(r[10]).toBe('R$ 1.650,00');
+    expect(r[12]).toBe('R$ 2.150,00');
+    expect(r[13]).toBe('56,58%');
+  });
+  it('exemplo com #RECEITAS em maiúsculas', () => {
+    const r = run(['#RECEITAS', 'Salário: R$ 3.000,00', '', '#Despesas', 'Médico: - R$ 2.000,00', '', '#RECEITAS - #Despesas = R$ 1.000,00', 'Sobra % = 66%'].join('\n'));
+    expect(r[6]).toBe('R$ 1.000,00');
+    expect(r[7]).toBe('33,33%');
+  });
+});
+
+describe('relatório comparativo', () => {
+  it('alinha seções e lançamentos entre notas e calcula a variação', async () => {
+    const { compareRows, noteFigures, deltaTone } = await import('../src/lib/compare');
+    const ctx = defaultContext({ rates });
+    const fmt = { decimal: ctx.decimal, grouping: true, precision: 4, lang: ctx.lang, currencyPosition: 'before' as const, tags: [] };
+    const note = (id: string, text: string) => ({ id, title: id, icon: 'Wallet', color: '#000', created: 0, updated: 0, blocks: [{ id: id + 'b', type: 'calc' as const, text }] });
+    const a = note('out', '#Receitas\nSalário: R$ 3.000\n#Despesas\nMercado: -R$ 800');
+    const b = note('nov', '#Receitas\nSalário: R$ 3.300\n#Despesas\nMercado: -R$ 950');
+    const rows = compareRows([noteFigures(a, ctx, fmt), noteFigures(b, ctx, fmt)], ctx);
+    const rec = rows.find((r) => r.key === 'receitas' && r.kind === 'section')!;
+    expect(formatValue(rec.delta!, fmt)).toBe('R$ 300,00');
+    expect(rec.pct).toBeCloseTo(0.1);
+    expect(deltaTone(rec)).toBe('income');
+    const merc = rows.find((r) => r.key === 'mercado')!;
+    expect(deltaTone(merc)).toBe('expense');
+  });
+});
+
+describe('despesas com e sem sinal', () => {
+  it('soma pelo tamanho quando a seção mistura sinais', () => {
+    const r = run(['#Receitas', 'Salário: R$ 1.000', '#Despesas', 'Mercado: R$ 300', 'Farmácia: -R$ 100', 'Luz: R$ 50', 'Total #Despesas', '#Receitas - #Despesas'].join('\n'));
+    expect(r[6]).toBe('R$ 450,00');
+    expect(r[7]).toBe('R$ 550,00');
   });
 });

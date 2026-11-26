@@ -285,7 +285,7 @@ export function formatValue(v: Value, o: FormatOptions): string {
     return (n < 0 ? '-' : '') + p + s;
   }
   if (v.fmt === 'sci') return v.n.toExponential(Math.min(o.precision, 8)).replace('.', o.decimal === 'comma' ? ',' : '.');
-  if (v.pct) return formatNumber(v.n * 100, o, Math.min(o.precision, 4)) + '%';
+  if (v.pct) return formatNumber(v.n * 100, o, Math.min(o.precision, 2)) + '%';
   if (v.unit?.dim === 'money') {
     const code = v.unit.currency!;
     const info = currencyInfo(code);
@@ -297,8 +297,9 @@ export function formatValue(v: Value, o: FormatOptions): string {
     const letters = /^[A-Za-z]{2,}$/.test(sym) || info?.crypto || isTag;
     if (letters) return `${s} ${sym}`;
     if (o.currencyPosition === 'after') return `${s} ${sym}`;
-    if (sym === '$' || sym === '£' || sym === '€') return o.lang === 'en' ? `${s.startsWith('-') ? '-' : ''}${sym}${s.replace(/^-/, '')}` : `${sym} ${s}`;
-    return `${sym} ${s}`;
+    if (sym === '$' || sym === '£' || sym === '€') return o.lang === 'en' ? `${s.startsWith('-') ? '-' : ''}${sym}${s.replace(/^-/, '')}` : s.startsWith('-') ? `-${sym} ${s.slice(1)}` : `${sym} ${s}`;
+    // negativo com o sinal antes do símbolo: -R$ 100,00
+    return s.startsWith('-') ? `-${sym} ${s.slice(1)}` : `${sym} ${s}`;
   }
   const s = formatNumber(v.n, o, o.precision);
   if (v.unit) return `${s} ${v.unit.symbol}`;

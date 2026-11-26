@@ -32,7 +32,7 @@ export function evaluateNote(note: Note, ctx: EvalContext, fmt: FormatOptions): 
     } else if (b.type === 'progress') {
       const probe = (expr: string) => {
         if (!expr.trim()) return undefined;
-        const tmp: DocState = { ...st, vars: new Map(st.vars), lines: [...st.lines], group: [...st.group] };
+        const tmp: DocState = { ...st, vars: new Map(st.vars), lines: [...st.lines], group: [...st.group], sections: new Map([...st.sections].map(([k, s]) => [k, { ...s, values: [...s.values] }])) };
         return evaluateLine(expr, ctx, tmp);
       };
       progress.set(b.id, { value: probe(b.value), goal: probe(b.goal) });

@@ -2,6 +2,8 @@
  * Modelo comum de exportação: a nota avaliada, com resultados formatados e
  * os elementos gráficos já prontos para PDF, Word, PowerPoint e Excel.
  */
+import { useData } from '../store/data';
+import { compareRows, noteFigures } from '../lib/compare';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { icons } from 'lucide-react';
@@ -360,6 +362,33 @@ export async function buildExport(
       case 'sticker':
         if (withImages) blocks.push({ type: 'sticker', png: await iconPng(b.emoji, note.color, Math.max(32, b.size)), size: b.size, align: b.align });
         break;
+      case 'compare': {
+        // relatório comparativo: título + uma linha por item ("Receitas: A → B", variação no resultado)
+        const all = useData.getState().notes;
+        const cols = b.sources.map((id) => (id === 'self' ? note : all.find((n) => n.id === id && !n.deleted))).filter((n): n is Note => !!n);
+        if (cols.length < 2) break;
+        const rows = compareRows(cols.map((n) => noteFigures(n, ctx, fmt, n.id === note.id ? ev : undefined)), ctx, b.only ?? 'all');
+        if (!rows.length) break;
+        blocks.push({ type: 'heading', text: b.title || cols.map((c) => c.title || '—').join(' × '), level: 3 });
+        const lines = rows.map((r): XLine => {
+          const text = `${r.kind === 'section' ? '#' : ''}${r.label}: ${r.values.map((v) => (v ? formatValue(v, fmt) : '—')).join(' → ')}`;
+          const result = r.delta ? `${r.delta.n > 0 ? '+' : ''}${formatValue(r.delta, fmt)}${r.pct !== undefined ? ` (${r.pct > 0 ? '+' : ''}${(r.pct * 100).toFixed(1).replace('.', ctx.decimal === 'comma' ? ',' : '.')}%)` : ''}` : undefined;
+          return {
+            text,
+            segments: [
+              { text: `${r.kind === 'section' ? '#' : ''}${r.label}: `, cls: r.kind === 'section' ? 'section' : 'label' },
+              { text: r.values.map((v) => (v ? formatValue(v, fmt) : '—')).join(' → '), cls: 'num' },
+            ],
+            kind: r.delta ? 'value' : 'text',
+            value: r.delta,
+            result,
+            label: r.label,
+            aggregate: r.kind !== 'item',
+          };
+        });
+        blocks.push({ type: 'calc', lines });
+        break;
+      }
     }
   }
   return {

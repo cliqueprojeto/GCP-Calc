@@ -248,6 +248,8 @@ function General() {
           </Field>
         </div>
         <Toggle checked={settings.lineNumbers} onChange={(lineNumbers) => setSettings({ lineNumbers })} label={t('settings.lineNumbers')} />
+        <Toggle checked={settings.autoFormat !== false} onChange={(autoFormat) => setSettings({ autoFormat })} label={t('settings.autoFormat')} />
+        <Toggle checked={settings.autocomplete !== false} onChange={(autocomplete) => setSettings({ autocomplete })} label={t('settings.autocomplete')} />
       </Card>
     </>
   );

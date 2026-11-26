@@ -58,6 +58,10 @@ Rules for "lines" (they are inserted into the note and evaluated live by the cal
 - Functions: sqrt(x), round(x; 2), pmt(rate; periods; present value) for fixed installments, fv(rate; periods; payment; initial), pv(...), min, max, avg.
 - Dates: "hoje + 30 dias", "25/12/2026 - hoje".
 - "total" alone sums the lines above in the same block; "média" averages them.
+- Sections: a line "#Receitas" (no space after #) opens a named section; entries below it ("Salário: R$ 3.000") belong to it until the next "#Name".
+  "#Receitas" inside an expression is the section's sum: "Total #Receitas", "Saldo: #Receitas - #Despesas" (expenses may be written as positive or negative; they are subtracted by absolute value), "Saldo %" = saldo as % of income.
+  For budgets, always organize money into #Receitas / #Despesas (or the user's own names) with a total per section, a "Saldo" line and "Saldo %".
+- Entries use "Label: value". Write money with the currency symbol (R$ 1.500,00). Quantities (people, days, units) stay plain numbers without currency.
 Keep "explanation" to 1-3 sentences. "followups": up to 3 short follow-up ideas.`;
 }
 

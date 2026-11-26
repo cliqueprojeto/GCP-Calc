@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { loadDoc, saveDoc, uid } from '../lib/platform';
-import type { Block, DataDoc, Folder, Note, Settings, Tag } from '../lib/types';
+import type { Block, DataDoc, Folder, Note, Settings, Tag, UserTemplate } from '../lib/types';
 import { welcomeNotes } from '../notes/welcome';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ratesOnOpen: true,
   ratesMaxAge: 6,
   lineNumbers: false,
+  autoFormat: true,
+  autocomplete: true,
   keypad: 'auto',
   resultColors: true,
   ai: { providers: [], inline: true },
@@ -39,6 +41,7 @@ interface DataState {
   notes: Note[];
   folders: Folder[];
   tags: Tag[];
+  templates: UserTemplate[];
   settings: Settings;
   /** contador de alterações locais (para a sincronização) */
   rev: number;
@@ -55,6 +58,8 @@ interface DataState {
   deleteFolder(id: string): void;
   upsertTag(t: Omit<Tag, 'updated'>): void;
   deleteTag(id: string): void;
+  saveTemplate(t: Omit<UserTemplate, 'updated'>): void;
+  deleteTemplate(id: string): void;
   setSettings(patch: Partial<Settings> | ((s: Settings) => Partial<Settings>)): void;
   exportDoc(): DataDoc;
   importDoc(doc: DataDoc, mode: 'merge' | 'replace'): void;
@@ -88,6 +93,7 @@ export const useData = create<DataState>((set, get) => ({
   notes: [],
   folders: [],
   tags: [],
+  templates: [],
   settings: DEFAULT_SETTINGS,
   rev: 0,
 
@@ -111,6 +117,7 @@ export const useData = create<DataState>((set, get) => ({
       notes: notes.map((n) => (n.deleted && n.deleted < cutoff && !n.purged ? { ...n, blocks: [], title: '', purged: true } : n)),
       folders: doc?.folders ?? [],
       tags: doc?.tags ?? [],
+      templates: doc?.templates ?? [],
       settings: s,
     });
     if (!doc) persistData();
@@ -196,6 +203,16 @@ export const useData = create<DataState>((set, get) => ({
       return { tags: exists ? s.tags.map((x) => (x.id === t.id ? tag : x)) : [...s.tags, tag], rev: s.rev + 1 };
     });
   },
+  saveTemplate(tp) {
+    set((s) => {
+      const item: UserTemplate = { ...tp, updated: now() };
+      const exists = s.templates.some((x) => x.id === tp.id);
+      return { templates: exists ? s.templates.map((x) => (x.id === tp.id ? item : x)) : [...s.templates, item], rev: s.rev + 1 };
+    });
+  },
+  deleteTemplate(id) {
+    set((s) => ({ templates: s.templates.map((x) => (x.id === id ? { ...x, blocks: [], deleted: now(), updated: now() } : x)), rev: s.rev + 1 }));
+  },
   deleteTag(id) {
     set((s) => ({ tags: s.tags.map((x) => (x.id === id ? { ...x, deleted: now(), updated: now() } : x)), rev: s.rev + 1 }));
   },
@@ -205,12 +222,12 @@ export const useData = create<DataState>((set, get) => ({
   },
 
   exportDoc() {
-    const { notes, folders, tags } = get();
-    return { version: 1, notes, folders, tags };
+    const { notes, folders, tags, templates } = get();
+    return { version: 1, notes, folders, tags, templates };
   },
 
   importDoc(doc, mode) {
-    if (mode === 'replace') set((s) => ({ notes: doc.notes, folders: doc.folders, tags: doc.tags, rev: s.rev + 1 }));
+    if (mode === 'replace') set((s) => ({ notes: doc.notes, folders: doc.folders, tags: doc.tags, templates: doc.templates ?? [], rev: s.rev + 1 }));
     else get().mergeRemote(doc);
   },
 
@@ -219,9 +236,10 @@ export const useData = create<DataState>((set, get) => ({
     const n = mergeLists(s.notes, doc.notes || []);
     const f = mergeLists(s.folders, doc.folders || []);
     const t = mergeLists(s.tags, doc.tags || []);
-    const pulled = n.pulled + f.pulled + t.pulled;
-    if (pulled) set({ notes: n.list.sort((a, b) => b.updated - a.updated), folders: f.list, tags: t.list });
-    return { pulled, ahead: n.ahead || f.ahead || t.ahead };
+    const p = mergeLists(s.templates, doc.templates || []);
+    const pulled = n.pulled + f.pulled + t.pulled + p.pulled;
+    if (pulled) set({ notes: n.list.sort((a, b) => b.updated - a.updated), folders: f.list, tags: t.list, templates: p.list });
+    return { pulled, ahead: n.ahead || f.ahead || t.ahead || p.ahead };
   },
 }));
 
@@ -244,7 +262,7 @@ export function flushSave() {
 
 useData.subscribe((s, prev) => {
   if (!s.loaded) return;
-  if (s.notes !== prev.notes || s.folders !== prev.folders || s.tags !== prev.tags) {
+  if (s.notes !== prev.notes || s.folders !== prev.folders || s.tags !== prev.tags || s.templates !== prev.templates) {
     if (dataTimer) clearTimeout(dataTimer);
     dataTimer = setTimeout(persistData, 400);
   }

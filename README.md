@@ -40,6 +40,9 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 | 📏 | **Conversor de unidades** | Comprimento, massa, área, volume, tempo, temperatura, dados, velocidade de internet, velocidade, energia, potência, pressão, ângulo e frequência · unidades compostas (`5 ft 3 in em cm`, `100 km / 2 h`, `3 m * 4 m` → m², `500 Mbps * 1 h em GB`) · medidas de cozinha (xícaras, colheres) |
 | ％ | **Porcentagens** | `300 + 10%` · `300 − 10%` · `20% de 300` · `50 em % de 200` · `20% off 50` |
 | 🧩 | **Variáveis, rótulos e funções** | `salario = R$ 7.500` · rótulos viram variáveis (`Aluguel: 1.500` → `Aluguel * 12`) · funções próprias (`f(x) = x^2 + 1`) · `total`, `média`, `prev`, `linha3` · `sqrt`, `round`, `log`, `ln`, trigonometria, `mdc`, `mmc`, `min`, `max` · financeiras `pmt` (parcela fixa / Price), `fv` (valor futuro), `pv` · hexadecimal, binário e notação científica |
+| 🧾 | **Seções, moeda e autocompletar (como num editor de código)** | `#Receitas` abre uma seção e `#Receitas` numa conta vale a soma dela · `Total #Receitas` · `#Receitas - #Despesas` (despesas negativas ou positivas são descontadas) · `Sobra %` = sobra em % das receitas · `Flora: 2.000` numa seção em reais vira **R$ 2.000,00**; quantidades (`pessoas: 2`) continuam números · separadores de milhar entram enquanto você digita · **Enter** formata a linha (`-R$ 100,00`) e preenche `= …` · autocompletar de variáveis (com o valor), `#seções` e funções · receitas em verde, despesas em vermelho |
+| 🗂️ | **Organizar com um clique** | Separa lançamentos em receitas e despesas, coloca a moeda, soma cada seção e calcula saldo e saldo % · prévia antes × depois · revisão opcional pela IA |
+| 📈 | **Relatórios comparativos (BI)** | Bloco que compara notas salvas lado a lado (ex.: orçamento do mês passado × este mês): seções, lançamentos e saldo com variação em valor e %, verde quando melhora e vermelho quando piora · entra no PDF, Word, PowerPoint e Excel |
 | 📅 | **Datas** | `hoje + 30 dias` · `25/12/2026 − hoje` · semanas, meses e anos no calendário |
 | 🗂️ | **Notas organizadas** | Nome, cor e ícone (banco com toda a biblioteca **Lucide**, 1.500+ ícones com busca, e emojis) · pastas · fixar · lixeira por 30 dias · busca rápida `Ctrl+K` · modelos prontos |
 | 📊 | **Elementos gráficos no bloco** | Gráficos de colunas, barras, pizza, rosca e linha gerados dos próprios cálculos · metas com barra de progresso · painel de cotações · destaques coloridos · imagens · adesivos · títulos e divisores |
@@ -59,13 +62,16 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 
 Com uma IA configurada, o assistente aceita qualquer pedido ("quanto juntar por mês para R$ 20 mil em 2 anos?"), explica a nota e revisa os cálculos — sempre com botões e prévia, sem sair da nota. Provedores suportados: **Anthropic, OpenAI, Google Gemini, Mistral, Groq, DeepSeek, xAI, OpenRouter, Ollama (local)** e qualquer API compatível com OpenAI. O botão **Testar API** confere a chave, lista os modelos e escolhe o melhor disponível. Se o provedor estiver sobrecarregado (erros 503/429), o app tenta de novo sozinho e, se preciso, usa outro modelo do mesmo provedor ou outro provedor configurado. A chave fica só no seu aparelho.
 
-### Modelos prontos
+### Modelos prontos e modelos seus
 
-Orçamento do mês · Viagem internacional (várias moedas) · Orçamento de projeto cultural (rubricas e limites percentuais) · Proposta de freelance · Receita escalável · Investimentos · Reforma e obra · Conversões rápidas.
+Orçamento do mês · Lista de compras · Gastos com pets · Dividir a conta · Viagem de carro · Churrasco e festa · Parcelado ou à vista? · Meta de economia · Volta às aulas · Viagem internacional (várias moedas) · Orçamento de projeto cultural (rubricas e limites percentuais) · Proposta de freelance · Receita escalável · Investimentos · Reforma e obra · Conversões rápidas.
+
+**Crie, compartilhe e importe modelos:** qualquer nota vira modelo (menu ⋯ → *Salvar como modelo*) com nome, descrição, ícone e cor próprios, levando todos os blocos e gráficos. Compartilhe por um **código de texto** (`GCPCALC1:…`, cabe numa mensagem) ou um **arquivo `.gcptpl`**; quem recebe importa em *Modelos → Importar modelo*, vê a prévia e adiciona aos seus. Os modelos também sincronizam pelo Google Drive.
 
 ### Interface
 
-- Visual premium, coeso com a série GCP, com o mesmo ícone de base branca da família.
+- Visual premium, coeso com a série GCP, com ícone próprio: um cupom fiscal com selo de calculadora dourado sobre fundo esmeralda.
+- Cursor preciso ao tocar ou clicar em qualquer ponto do texto (inclusive em títulos `#`), no computador e no Android.
 - **Português, inglês e espanhol completos**, com detecção automática do idioma do sistema (troca rápida na barra superior).
 - Resultado clicável: um clique copia o valor; o rodapé de cada bloco mostra soma e média.
 - Teclado de operadores no celular, áreas seguras do Android (barra de status, gestos e teclado).
@@ -128,8 +134,10 @@ O GCP-Calc ainda não usa certificados pagos de assinatura de código, por isso 
 
 ## 🖼️ Telas
 
-| Moedas ao vivo, unidades, datas e funções | Gráficos gerados dos cálculos |
+| Seções #Receitas/#Despesas, moeda automática e cores | Relatório comparativo entre notas (BI) |
 |---|---|
+| <img src="docs/screenshots/18-secoes.png" alt="Seções e moeda automática" /> | <img src="docs/screenshots/19-relatorio.png" alt="Relatório comparativo" /> |
+| **Moedas ao vivo, unidades, datas e funções** | **Gráficos gerados dos cálculos** |
 | <img src="docs/screenshots/02-moedas-unidades.png" alt="Moedas e unidades" /> | <img src="docs/screenshots/03-grafico.png" alt="Gráfico" /> |
 | **Assistente passo a passo** | **Assistente guiado: financiamento com prévia** |
 | <img src="docs/screenshots/04-assistente.png" alt="Assistente" /> | <img src="docs/screenshots/05-assistente-passos.png" alt="Assistente guiado" /> |
@@ -156,6 +164,13 @@ O GCP-Calc ainda não usa certificados pagos de assinatura de código, por isso 
 
 ```
 # Títulos começam com #          // comentários com //
+#Receitas                        seção: as linhas abaixo somam nela
+Salário: R$ 3.000                rótulo + valor (o rótulo vira variável)
+Flora: 2.000                     moeda da seção (→ R$ 2.000,00)
+#Despesas
+Médico: -R$ 2.000                negativas ou positivas, tanto faz
+#Receitas - #Despesas =          Enter preenche o resultado
+Sobra %                          sobra em % das receitas
 Aluguel: R$ 1.500                rótulo + valor (o rótulo vira variável)
 x = 10 * 3                       variável
 300 + 10%   ·   20% de 300       porcentagens
@@ -269,6 +284,9 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Natural language** in English, Portuguese and Spanish; free words are ignored (`Rent 1,500 + utilities 450`). Your language's decimal and thousands separators.
 - **Live currencies** (160+ currencies and crypto), refreshed when the app opens and on demand, plus **custom tags** (aliases or your own currencies with a fixed rate).
 - **Unit conversion** across 14 dimensions, including compound units (`5 ft 3 in in cm`, `100 km / 2 h`).
+- **Sections like a code editor**: `#Income` opens a section and `#Income` in a formula is its sum (`Total #Income`, `#Income - #Expenses`, `Balance %`); plain numbers inherit the section's currency, quantities stay numbers; thousands separators appear while you type, Enter formats the line; autocomplete for variables, `#sections` and functions; income in green, expenses in red. **Organize** rewrites a block into income/expenses with totals (optional AI review).
+- **Comparison reports (BI)**: a block that compares saved notes side by side (e.g. last month's budget × this month), with change in value and %.
+- **Your own templates**: save any note as a template with its own icon and color, share it as a text code or `.gcptpl` file, and import templates from other people. New built-ins: shopping list, pets, split the bill, road trip, BBQ, installments vs. cash, savings goal, back to school.
 - **Percentages** (`300 + 10%`, `20% of 300`, `50 as % of 200`), **variables**, labels, custom functions, `total`/`average`/`prev`, dates, `pmt`/`fv`/`pv`, hex and binary.
 - **Notes with name, color and icon** (1,500+ Lucide icons and emoji), folders, trash, templates and quick search (`Ctrl+K`).
 - **Graphic blocks**: charts built from your calculations, goals with progress bars, rates board, callouts, images, stickers.
@@ -288,6 +306,9 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Lenguaje natural** en español, portugués e inglés; las palabras sueltas se ignoran (`Alquiler 1.500 + luz 450`). Separadores decimales y de miles de tu idioma.
 - **Monedas en vivo** (160+ monedas y criptomonedas), actualizadas al abrir la app y cuando lo pidas, y **tags personalizados** (alias o monedas propias con cotización fija).
 - **Conversión de unidades** en 14 magnitudes, incluso compuestas (`5 ft 3 in en cm`, `100 km / 2 h`).
+- **Secciones como en un editor de código**: `#Ingresos` abre una sección y `#Ingresos` en una fórmula es su suma (`Total #Ingresos`, `#Ingresos - #Gastos`, `Saldo %`); los números sueltos toman la moneda de la sección y las cantidades siguen siendo números; separadores de miles al escribir, Enter formatea la línea; autocompletar de variables, `#secciones` y funciones; ingresos en verde y gastos en rojo. **Organizar** reescribe un bloque en ingresos/gastos con totales (revisión opcional por IA).
+- **Informes comparativos (BI)**: un bloque que compara notas guardadas lado a lado (ej.: presupuesto del mes pasado × este mes), con variación en valor y %.
+- **Plantillas propias**: guarda cualquier nota como plantilla con icono y color, compártela como código de texto o archivo `.gcptpl` e importa plantillas de otras personas. Nuevas incluidas: lista de compras, mascotas, dividir la cuenta, viaje en coche, asado, a plazos o al contado, meta de ahorro, vuelta al cole.
 - **Porcentajes** (`300 + 10%`, `20% de 300`, `50 en % de 200`), **variables**, etiquetas, funciones propias, `total`/`promedio`/`prev`, fechas, `pmt`/`fv`/`pv`, hexadecimal y binario.
 - **Notas con nombre, color e icono** (1.500+ iconos Lucide y emojis), carpetas, papelera, plantillas y búsqueda rápida (`Ctrl+K`).
 - **Bloques gráficos**: gráficos generados de tus cálculos, metas con progreso, panel de cotizaciones, destacados, imágenes y pegatinas.

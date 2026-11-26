@@ -33,14 +33,14 @@ fs.writeFileSync(`${RES}/mipmap-anydpi-v26/ic_launcher_round.xml`, xml);
 fs.mkdirSync(`${RES}/values`, { recursive: true });
 fs.writeFileSync(`${RES}/values/ic_launcher_background.xml`, `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="ic_launcher_background">#0E4B42</color>
 </resources>
 `);
 // prévia com máscaras (círculo, squircle, gota) para conferência
 await p.setViewportSize({ width: 760, height: 220 });
 const fg = fs.readFileSync(`${RES}/mipmap-xxxhdpi/ic_launcher_foreground.png`).toString('base64');
 const masks = ['50%', '28%', '50% 50% 50% 12%', '0'];
-await p.setContent(`<body style="margin:0;background:#e5e7eb;display:flex;gap:30px;padding:30px">${masks.map((m) => `<div style="width:160px;height:160px;border-radius:${m};overflow:hidden;background:#FFFFFF"><img src="data:image/png;base64,${fg}" style="width:160px;height:160px;transform:scale(1.0)"></div>`).join('')}</body>`);
+await p.setContent(`<body style="margin:0;background:#e5e7eb;display:flex;gap:30px;padding:30px">${masks.map((m) => `<div style="width:160px;height:160px;border-radius:${m};overflow:hidden;background:#0E4B42"><img src="data:image/png;base64,${fg}" style="width:160px;height:160px;transform:scale(1.0)"></div>`).join('')}</body>`);
 if (process.argv[2]) await p.screenshot({ path: process.argv[2] });
 await b.close();
 console.log('ok');

@@ -33,7 +33,7 @@ interface Props {
 type Mode = { kind: 'start' } | { kind: 'wizard'; w: Wizard; i: number; answers: Record<string, string> } | { kind: 'ai'; goal: string; turns: Turn[]; loading: boolean; error?: string };
 
 function cloneState(st: DocState): DocState {
-  return { vars: new Map(st.vars), funcs: new Map(st.funcs), lines: [...st.lines], group: [], prev: st.prev };
+  return { vars: new Map(st.vars), funcs: new Map(st.funcs), lines: [...st.lines], group: [], prev: st.prev, sections: new Map([...st.sections].map(([k, s]) => [k, { ...s, values: [...s.values] }])), section: st.section };
 }
 
 export function Assistant({ ctx, noteState, noteContext, hasValues, initialGoal, initialTurns, onInsert, onAddChart, onClose }: Props) {

@@ -10,7 +10,10 @@ import { useLang, useT, LOCALES } from '../i18n';
 import { Logo } from './Logo';
 import { noteSnippet } from './Sidebar';
 import { insertAtCaret, keypadAction } from './CalcEditor';
-import type { Block } from '../lib/types';
+import type { Block, UserTemplate } from '../lib/types';
+import { blocksForTemplate } from '../lib/templateShare';
+import { EditTemplateModal, ImportTemplateModal, TemplateActions } from './TemplateDialogs';
+import { FileUp } from 'lucide-react';
 
 export function useCreateFromTemplate() {
   const lang = useLang();
@@ -22,6 +25,16 @@ export function useCreateFromTemplate() {
     const blocks: Block[] = [calc];
     if (tpl.chart) blocks.push({ id: uid(), type: 'chart', kind: tpl.chart, source: calc.id, title: tpl.title[lang] });
     const nid = createNote({ title: tpl.title[lang], icon: tpl.icon, color: tpl.color, blocks });
+    go({ kind: 'note', id: nid });
+  };
+}
+
+/** Nova nota a partir de um modelo do usuário (blocos completos, ícone e cor). */
+export function useCreateFromUserTemplate() {
+  const { createNote } = useData();
+  const { go } = useUi();
+  return (tp: UserTemplate) => {
+    const nid = createNote({ title: tp.title, icon: tp.icon, color: tp.color, blocks: blocksForTemplate(tp.blocks) });
     go({ kind: 'note', id: nid });
   };
 }
@@ -101,15 +114,54 @@ export function Templates() {
   const t = useT();
   const lang = useLang();
   const fromTemplate = useCreateFromTemplate();
+  const fromUser = useCreateFromUserTemplate();
+  const all = useData((s) => s.templates);
+  const mine = useMemo(() => all.filter((x) => !x.deleted).sort((a, b) => b.updated - a.updated), [all]);
+  const [importing, setImporting] = useState(false);
+  const [editing, setEditing] = useState<UserTemplate | null>(null);
   return (
     <div className="page">
       <div className="page-head">
         <LayoutTemplate size={22} />
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>{t('sidebar.templates')}</h1>
           <p>{t('templates.subtitle')}</p>
         </div>
+        <button className="btn" onClick={() => setImporting(true)}>
+          <FileUp size={15} /> {t('tpl.import')}
+        </button>
       </div>
+      <h3 className="sec-title">{t('tpl.mine')}</h3>
+      {mine.length ? (
+        <div className="tpl-grid">
+          {mine.map((tp) => (
+            <div key={tp.id} className="tpl-card user" role="button" tabIndex={0} onClick={() => fromUser(tp)} onKeyDown={(e) => e.key === 'Enter' && fromUser(tp)} style={{ '--c': tp.color } as React.CSSProperties}>
+              <div className="tpl-icon">
+                <NoteIcon name={tp.icon} size={22} />
+              </div>
+              <div className="tpl-more-wrap" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                <TemplateActions tpl={tp} onEdit={() => setEditing(tp)} />
+              </div>
+              <h3>{tp.title}</h3>
+              <p>{tp.desc || (tp.author ? t('tpl.by', { name: tp.author }) : '')}</p>
+              <pre>
+                {tp.blocks
+                  .filter((b) => b.type === 'calc')
+                  .map((b) => (b as { text: string }).text)
+                  .join('\n')
+                  .split('\n')
+                  .slice(0, 5)
+                  .join('\n')}
+              </pre>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="muted tpl-empty">{t('tpl.empty')}</p>
+      )}
+      <h3 className="sec-title">{t('tpl.builtin')}</h3>
+      <ImportTemplateModal open={importing} onClose={() => setImporting(false)} />
+      {editing && <EditTemplateModal key={editing.id} tpl={editing} onClose={() => setEditing(null)} />}
       <div className="tpl-grid">
         {TEMPLATES.map((tp) => (
           <button key={tp.id} className="tpl-card" onClick={() => fromTemplate(tp.id)} style={{ '--c': tp.color } as React.CSSProperties}>
