@@ -9,6 +9,7 @@ import { evaluateDocument, newDocState } from '../engine/evaluate';
 import { currencySymbol, formatValue, type EvalContext, type FormatOptions } from '../engine/value';
 import { audioProviders, blobToDataUrl, canLiveDictate, canRecord, MAX_RECORD_MS, Recorder, transcribe, type Recording } from '../lib/voice';
 import { dictationGoal, dictationToLines } from '../lib/dictation';
+import { offlineAvailable, transcribeOffline } from '../lib/whisper';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { nextStep, orderedProviders } from '../ai/assist';
@@ -40,6 +41,11 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
   const keep = settings.keepAudio !== false;
   const providers = orderedProviders(settings.ai.providers, settings.ai.active);
   const audioAi = audioProviders(settings.ai.providers);
+  const [offline, setOffline] = useState<boolean | null>(null);
+  const [translate, setTranslate] = useState(false);
+  useEffect(() => {
+    void offlineAvailable().then(setOffline);
+  }, []);
 
   const toLines = async (text: string) => {
     const offline = dictationToLines(text, ctx.lang, { decimal: ctx.decimal, symbol: currencySymbol(useData.getState().settings.baseCurrency, fmt) });
@@ -62,7 +68,19 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
 
   const process = async (r: Recording) => {
     setPhase('work');
-    let text = transcript || r.live;
+    let text = translate ? '' : transcript || r.live;
+    // 1º Whisper embutido (offline); 2º IA configurada
+    if (!text && (await offlineAvailable())) {
+      setStatus(t('voice.offlineWorking'));
+      try {
+        text = await transcribeOffline(r.blob, ctx.lang, {
+          translate,
+          onStatus: (s) => setStatus(s === 'loading' ? t('voice.offlineLoading') : s === 'working' ? t('voice.offlineWorking') : `${t('voice.offlineLoading')} ${s}%`),
+        });
+      } catch (e) {
+        console.warn('whisper', e);
+      }
+    }
     if (!text && audioAi.length) {
       setStatus(t('voice.transcribing'));
       try {
@@ -142,9 +160,10 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
           </button>
           <p>{t('voice.idleHint')}</p>
           <p className="muted small">
-            {canLiveDictate() ? t('voice.liveOk') : audioAi.length ? t('voice.aiOk', { name: audioAi[0].name }) : t('voice.noAi')}
+            {offline ? t('voice.offlineOk') : canLiveDictate() ? t('voice.liveOk') : audioAi.length ? t('voice.aiOk', { name: audioAi[0].name }) : t('voice.noAi')}
           </p>
-          {!audioAi.length && !canLiveDictate() && (
+          {offline && ctx.lang !== 'en' && <Toggle checked={translate} onChange={setTranslate} label={t('voice.translate')} />}
+          {!offline && !audioAi.length && !canLiveDictate() && (
             <button className="link" onClick={() => (useUi.getState().go({ kind: 'settings', section: 'ai' }), onClose())}>
               {t('voice.setupAi')}
             </button>

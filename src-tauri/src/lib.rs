@@ -1,3 +1,4 @@
+mod code;
 mod system;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -55,6 +56,7 @@ pub fn run() {
             system::oauth_result,
             system::update_download,
             system::update_install,
+            code::code_run,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o GCP-Calc");

@@ -32,10 +32,12 @@ import {
   ListTree,
   ChartColumnBig,
   Mic,
+  CodeXml,
 } from 'lucide-react';
 import { SaveTemplateModal } from './TemplateDialogs';
 import { OrganizeModal } from './OrganizeModal';
 import { CompareBlock } from './CompareBlock';
+import { CodeBlock } from './CodeBlock';
 import { AttachChooser, ReceiptViewer, ReceiptsStrip, attachFlow } from './Receipts';
 import { AudioBlock } from './AudioBlock';
 import { VoiceCapture, type VoiceResult } from './VoiceCapture';
@@ -92,6 +94,8 @@ export function newBlock(type: BlockType, settingsBase = 'BRL', favs: string[] =
       return { id, type, sources: ['self'], only: 'all' };
     case 'audio':
       return { id, type, src: '', mime: 'audio/webm', ms: 0, created: Date.now() };
+    case 'code':
+      return { id, type, lang: 'python', code: '' };
   }
 }
 
@@ -287,6 +291,7 @@ export function NoteView({ note }: { note: Note }) {
     { type: 'progress', icon: <Target size={15} />, label: t('block.progress') },
     { type: 'ticker', icon: <TrendingUp size={15} />, label: t('block.ticker') },
     { type: 'compare', icon: <ChartColumnBig size={15} />, label: t('block.compare') },
+    { type: 'code', icon: <CodeXml size={15} />, label: t('block.code') },
     { type: 'callout', icon: <MessageSquareQuote size={15} />, label: t('block.callout') },
     { type: 'image', icon: <Image size={15} />, label: t('block.image') },
     { type: 'sticker', icon: <Smile size={15} />, label: t('block.sticker') },
@@ -600,6 +605,9 @@ export function NoteView({ note }: { note: Note }) {
               break;
             case 'compare':
               body = <CompareBlock note={note} block={b} ctx={ctx} fmt={fmt} ev={ev} onChange={set} />;
+              break;
+            case 'code':
+              body = <CodeBlock block={b} onChange={set} />;
               break;
             case 'audio':
               body = <AudioBlock block={b} onTranscribe={() => openVoice(nearestCalc(b.id), b)} />;

@@ -1,11 +1,12 @@
 /** Páginas auxiliares: início, modelos, lixeira, busca rápida e teclado numérico. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Mic, ArrowRight, Calculator, Clock, CornerDownLeft, Delete, LayoutTemplate, Plus, RotateCcw, Search, Settings, Trash2, ListOrdered, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CodeXml, Camera, Mic, ArrowRight, Calculator, Clock, CornerDownLeft, Delete, LayoutTemplate, Plus, RotateCcw, Search, Settings, Trash2, ListOrdered, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData, visibleNotes } from '../store/data';
 import { useUi } from '../store/ui';
 import { NoteIcon } from '../lib/icons';
 import { uid, isMobile } from '../lib/platform';
 import { TEMPLATES } from '../notes/templates';
+import { CODE_TEMPLATES, type CodeTemplate } from '../notes/codeTemplates';
 import { useLang, useT, LOCALES } from '../i18n';
 import { Logo } from './Logo';
 import { noteSnippet } from './Sidebar';
@@ -25,6 +26,18 @@ export function useCreateFromTemplate() {
     const blocks: Block[] = [calc];
     if (tpl.chart) blocks.push({ id: uid(), type: 'chart', kind: tpl.chart, source: calc.id, title: tpl.title[lang] });
     const nid = createNote({ title: tpl.title[lang], icon: tpl.icon, color: tpl.color, blocks });
+    go({ kind: 'note', id: nid });
+  };
+}
+
+/** Nova nota a partir de um modelo de programação (lição com código que roda). */
+export function useCreateFromCodeTemplate() {
+  const lang = useLang();
+  const { createNote } = useData();
+  const { go } = useUi();
+  return (tp: CodeTemplate) => {
+    const blocks = tp.blocks(lang).map((b) => ({ ...b, id: uid() }) as Block);
+    const nid = createNote({ title: tp.title[lang], icon: tp.icon, color: tp.color, blocks });
     go({ kind: 'note', id: nid });
   };
 }
@@ -74,6 +87,9 @@ export function Home() {
         <button className="btn" onClick={() => go({ kind: 'templates' })}>
           <LayoutTemplate size={16} /> {t('sidebar.templates')}
         </button>
+        <button className="btn" onClick={() => go({ kind: 'note', id: createNote({ title: 'Playground', icon: 'CodeXml', color: '#6366f1', blocks: [{ id: uid(), type: 'code', lang: 'python', code: '' }] }) })}>
+          <CodeXml size={16} /> {t('home.playground')}
+        </button>
       </div>
       {recent.length > 0 && (
         <>
@@ -115,6 +131,7 @@ export function Templates() {
   const lang = useLang();
   const fromTemplate = useCreateFromTemplate();
   const fromUser = useCreateFromUserTemplate();
+  const fromCode = useCreateFromCodeTemplate();
   const all = useData((s) => s.templates);
   const mine = useMemo(() => all.filter((x) => !x.deleted).sort((a, b) => b.updated - a.updated), [all]);
   const [importing, setImporting] = useState(false);
@@ -160,6 +177,7 @@ export function Templates() {
         <p className="muted tpl-empty">{t('tpl.empty')}</p>
       )}
       <h3 className="sec-title">{t('tpl.builtin')}</h3>
+      {/* modelos prontos de finanças e dia a dia ficam abaixo; os de programação no fim */}
       <ImportTemplateModal open={importing} onClose={() => setImporting(false)} />
       {editing && <EditTemplateModal key={editing.id} tpl={editing} onClose={() => setEditing(null)} />}
       <div className="tpl-grid">
@@ -171,6 +189,24 @@ export function Templates() {
             <h3>{tp.title[lang]}</h3>
             <p>{tp.desc[lang]}</p>
             <pre>{tp.text[lang].split('\n').slice(0, 5).join('\n')}</pre>
+          </button>
+        ))}
+      </div>
+      <h3 className="sec-title">
+        <CodeXml size={15} /> {t('tpl.code')}
+      </h3>
+      <p className="muted small tpl-code-intro">{t('tpl.codeIntro')}</p>
+      <div className="tpl-grid">
+        {CODE_TEMPLATES.map((tp) => (
+          <button key={tp.id} className="tpl-card code" onClick={() => fromCode(tp)} style={{ '--c': tp.color } as React.CSSProperties}>
+            <div className="tpl-icon">
+              <NoteIcon name={tp.icon} size={22} />
+            </div>
+            <h3>{tp.title[lang]}</h3>
+            <p>{tp.desc[lang]}</p>
+            <pre>
+              {(tp.blocks(lang).find((b) => b.type === 'code') as { code?: string } | undefined)?.code?.split('\n').slice(0, 5).join('\n')}
+            </pre>
           </button>
         ))}
       </div>

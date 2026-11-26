@@ -371,6 +371,15 @@ export async function buildExport(
       case 'sticker':
         if (withImages) blocks.push({ type: 'sticker', png: await iconPng(b.emoji, note.color, Math.max(32, b.size)), size: b.size, align: b.align });
         break;
+      case 'code': {
+        // código como linhas em fonte mono; a saída do terminal como destaque
+        if (!b.code.trim()) break;
+        if (b.title) blocks.push({ type: 'heading', text: b.title, level: 3 });
+        blocks.push({ type: 'calc', lines: b.code.replace(/\s+$/, '').split('\n').map((text): XLine => ({ text, segments: [{ text, cls: 'text' }], kind: 'text' })) });
+        const outText = (b.output ?? []).map((l) => l.s).join('\n').trim();
+        if (outText) blocks.push({ type: 'callout', text: '▶ ' + outText.slice(0, 3000), color: b.ok === false ? '#ef4444' : '#10b981', iconPng: withImages ? await iconPng('SquareTerminal', b.ok === false ? '#ef4444' : '#10b981', 48) : '' });
+        break;
+      }
       case 'audio':
         // a gravação não vai para o documento; a transcrição vai como destaque
         if (b.transcript) blocks.push({ type: 'callout', text: `“${b.transcript}”`, color: note.color, iconPng: withImages ? await iconPng('AudioLines', note.color, 48) : '' });

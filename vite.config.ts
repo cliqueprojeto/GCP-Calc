@@ -16,6 +16,8 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
+  // workers do playground (JavaScript isolado e Python/Pyodide) como módulos
+  worker: { format: 'es' },
   build: {
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari15',
     minify: 'esbuild',
