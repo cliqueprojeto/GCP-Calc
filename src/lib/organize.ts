@@ -4,6 +4,7 @@
  * saldo e saldo em %. Funciona sem IA; a IA pode revisar o resultado depois.
  */
 import type { LineResult } from '../engine/evaluate';
+import { classifyTerm } from '../engine/vocab';
 import { formatValue, type FormatOptions } from '../engine/value';
 import type { Lang } from './types';
 
@@ -47,7 +48,8 @@ export function organizeText(text: string, results: LineResult[], fmt: FormatOpt
     if (!money || !r.label || r.assigned) return keep.push(line);
     const literal = r.fill !== undefined;
     const v = r.value!;
-    const isExpense = tone === 'expense' || v.n < 0 || (tone !== 'income' && EXPENSE_WORDS.test(r.label));
+    const kind = classifyTerm(r.label);
+    const isExpense = tone === 'expense' || v.n < 0 || (tone !== 'income' && kind !== 'income' && (kind === 'expense' || EXPENSE_WORDS.test(r.label)));
     const body = literal ? formatValue({ ...v, n: Math.abs(v.n) }, fmt) : line.slice(line.indexOf(':') + 1).trim().replace(/^-\s*/, '');
     (isExpense ? expense : income).push({ line, label: r.label, body });
   });

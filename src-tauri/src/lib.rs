@@ -17,8 +17,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
+
         .manage(system::OAuthState::default())
         .setup(|app| {
+            // digital/biometria do celular para desbloquear o app (Android/iOS)
+            #[cfg(mobile)]
+            app.handle().plugin(tauri_plugin_biometric::init())?;
             // Linux (WebKitGTK): permite o microfone para gravar e transcrever áudio nas notas.
             #[cfg(target_os = "linux")]
             {
@@ -41,7 +45,7 @@ pub fn run() {
                     });
                 }
             }
-            #[cfg(not(target_os = "linux"))]
+            #[cfg(not(any(target_os = "linux", mobile)))]
             let _ = app;
             Ok(())
         })

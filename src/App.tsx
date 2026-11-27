@@ -17,6 +17,7 @@ import { Toasts } from './components/ui';
 import { runUpdateCheck } from './components/UpdateBanner';
 import { RemindersPage, amountText } from './components/Reminders';
 import { PermissionsFirstRun } from './components/Permissions';
+import { LockScreen } from './components/Lock';
 import { startReminderLoop } from './lib/reminders';
 import { currentContext, formatOptions } from './lib/calcContext';
 
@@ -142,6 +143,7 @@ export function App() {
       </main>
       <Support />
       <PermissionsFirstRun />
+      <LockScreen />
       <CommandPalette />
       <Toasts />
     </div>

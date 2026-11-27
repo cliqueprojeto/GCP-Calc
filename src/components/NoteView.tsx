@@ -42,6 +42,7 @@ import { AttachChooser, ReceiptViewer, ReceiptsStrip, attachFlow } from './Recei
 import { AudioBlock } from './AudioBlock';
 import { VoiceCapture, type VoiceResult } from './VoiceCapture';
 import { dataUrlToBlob } from '../lib/voice';
+import { insertIntoSections } from '../lib/smartInsert';
 import { fold } from '../engine/units';
 import type { Suggestion } from './CalcEditor';
 import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState, type LineResult } from '../engine/evaluate';
@@ -187,10 +188,13 @@ export function NoteView({ note }: { note: Note }) {
       insertAfter(voice?.audio?.id, nb);
       target = nb;
     }
+    let placedMsg = '';
     if (target && target.type === 'calc' && r.lines.length) {
       const cur = (useData.getState().notes.find((x) => x.id === note.id)?.blocks.find((x) => x.id === target!.id) as { text: string } | undefined)?.text ?? '';
-      const text = cur.replace(/\s+$/, '');
-      updateBlock(note.id, target.id, { text: (text ? text + '\n' : '') + r.lines.join('\n') });
+      // cada item vai para a seção que já existe (#Despesas, #Receitas…), na última linha antes do total
+      const res = insertIntoSections(cur, ev.perBlock.get(target.id)?.results ?? [], r.items.length ? r.items : r.lines.map((line) => ({ line })));
+      updateBlock(note.id, target.id, { text: res.text });
+      placedMsg = res.placed.map((p) => `#${p.name} +${p.n}`).join(' · ');
     }
     if (voice?.audio && r.transcript) updateBlock(note.id, voice.audio.id, { transcript: r.transcript });
     if (r.audio) {
@@ -200,7 +204,7 @@ export function NoteView({ note }: { note: Note }) {
         nn.blocks.splice(i + 1, 0, ab);
       });
     }
-    toast(t('voice.done'), 'ok');
+    toast(placedMsg ? `${t('voice.done')}: ${placedMsg}` : t('voice.done'), 'ok');
     if (r.organize && target) setTimeout(() => setOrganizing(target!.id), 50);
   };
   const [lastAdded, setLastAdded] = useState<string | null>(null);
@@ -610,13 +614,13 @@ export function NoteView({ note }: { note: Note }) {
               body = <CodeBlock block={b} onChange={set} />;
               break;
             case 'audio':
-              body = <AudioBlock block={b} onTranscribe={() => openVoice(nearestCalc(b.id), b)} />;
+              body = <AudioBlock block={b} onTranscribe={() => openVoice(nearestCalc(b.id), b)} onChange={set} onRemove={() => removeBlock(b.id)} />;
               break;
           }
           const sum = b.type === 'calc' ? blockSum(b.id) : null;
           return (
             <Fragment key={b.id}>
-              <div className={`block-wrap bt-${b.type}`}>
+              <div className={`block-wrap bt-${b.type}`} tabIndex={-1}>
                 <div className="block-tools">
                   <InsertMenu after={b.id} />
                   <button className="ins-btn" disabled={idx === 0} onClick={() => moveBlock(b.id, -1)} title={t('block.up')}>

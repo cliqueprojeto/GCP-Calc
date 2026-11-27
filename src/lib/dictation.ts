@@ -4,6 +4,7 @@
  * Com IA configurada, o app pede a ela a mesma conversão (mais esperta) e usa esta como reserva.
  */
 import type { Lang } from './types';
+import { classifyTerm, type Kind } from '../engine/vocab';
 
 const VERBS: Record<Lang, RegExp> = {
   pt: /^(?:eu\s+)?(?:comprei|paguei|gastei|recebi|ganhei|vendi|coloquei|botei|anota(?:r)?|lança(?:r)?|lancei|mais|também|tambem|e|depois|aí|ai|então|entao)(?![\p{L}\p{N}])\s*/iu,
@@ -68,6 +69,14 @@ export function wordsToNumbers(text: string): string {
       } else if (!/^\s+$|^-$/.test(parts[j]) && !['e', 'y', 'and'].includes(t)) break;
       j++;
     }
+    // "um/uma" sozinho é artigo ("um freela"), a não ser antes de moeda/escala ("um real", "um mil")
+    if (last === i && ['um', 'uma', 'uno', 'una', 'one', 'a'].includes(w)) {
+      const nextWord = fold(parts.slice(i + 1).find((x) => x.trim() && !/^[,.;!?-]$/.test(x)) ?? '');
+      if (!/^(real|reais|dolar|dolares|dollar|dollars|euro|euros|peso|pesos|mil|milhao|thousand|hundred|million)$/.test(nextWord)) {
+        out.push(parts[i++]);
+        continue;
+      }
+    }
     out.push(String(total + cur));
     // conector final ("e") que não liga números fica no texto
     i = last + 1;
@@ -84,6 +93,11 @@ function normalizeMoney(t: string, lang: Lang, dec: string): string {
 }
 
 export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string }): string[] {
+  return dictationItems(text, lang, opts).map((x) => x.line);
+}
+
+/** Itens do ditado com a classificação (receita/despesa) vinda do que foi dito ("comprei", "recebi"…). */
+export function dictationItems(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string }): { line: string; tone?: Kind }[] {
   const dec = opts.decimal === 'comma' ? ',' : '.';
   const src = normalizeMoney(wordsToNumbers(text.replace(/\s+/g, ' ').trim()), lang, dec);
   // separa itens: pontuação, quebras e " e " / " and " / " y " antes de uma palavra
@@ -91,14 +105,16 @@ export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'com
     .split(/[;\n]|[.!?](?=\s|$)|,(?=\s*\D)|\s+(?:e|and|y|mais|plus)\s+(?=[\p{L}])/u)
     .map((x) => x.trim())
     .filter(Boolean);
-  const out: string[] = [];
+  const out: { line: string; tone?: Kind }[] = [];
+  const overall = classifyTerm(text);
   for (let p of parts) {
     const income = INCOME[lang].test(p);
+    const said = classifyTerm(p);
     for (let i = 0; i < 3; i++) p = p.replace(VERBS[lang], '');
     // último número do trecho é o valor (aceita 1.234,56 / 1,234.56 / 27,90)
     const nums = [...p.matchAll(/\d[\d.,]*/g)];
     if (!nums.length) {
-      if (p.length > 2) out.push(`// ${cap(p)}`);
+      if (p.length > 2) out.push({ line: `// ${cap(p)}` });
       continue;
     }
     const last = nums[nums.length - 1];
@@ -117,7 +133,8 @@ export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'com
     if (!label) label = lang === 'en' ? 'Item' : 'Item';
     value = `${opts.symbol} ${value}`;
     const sign = income ? '' : '';
-    out.push(`${cap(label)}: ${sign}${qty && qty !== '1' ? `${qty} * ` : ''}${value}`);
+    const tone = income ? 'income' : said ?? classifyTerm(label) ?? overall;
+    out.push({ line: `${cap(label)}: ${sign}${qty && qty !== '1' ? `${qty} * ` : ''}${value}`, tone });
   }
   return out;
 }
@@ -125,7 +142,7 @@ export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'com
 /** Instrução para a IA converter o ditado (usada com o comando inline). */
 export const dictationGoal = (transcript: string, lang: Lang) =>
   ({
-    pt: `Transforme este ditado em linhas de cálculo para a nota, uma por item, no formato "Item: valor" (com moeda; quantidade × preço quando houver). Separe em #Receitas e #Despesas só se houver os dois tipos. Não invente valores; o que não tiver número vira comentário "//". Ditado: "${transcript}"`,
-    en: `Turn this dictation into calculator lines for the note, one per item, as "Item: value" (with currency; quantity × price when given). Split into #Income and #Expenses only if both kinds appear. Don't invent values; anything without a number becomes a "//" comment. Dictation: "${transcript}"`,
-    es: `Convierte este dictado en líneas de cálculo para la nota, una por ítem, como "Ítem: valor" (con moneda; cantidad × precio cuando haya). Separa en #Ingresos y #Gastos solo si aparecen ambos. No inventes valores; lo que no tenga número va como comentario "//". Dictado: "${transcript}"`,
+    pt: `Transforme este ditado em linhas de cálculo para a nota, uma por item, no formato "Item: valor" (com moeda; quantidade × preço quando houver). Se a nota já tiver seções (#Despesas, #Gastos, #Receitas…), use os nomes que já existem; senão, separe em #Receitas e #Despesas só se houver os dois tipos. Não invente valores; o que não tiver número vira comentário "//". Ditado: "${transcript}"`,
+    en: `Turn this dictation into calculator lines for the note, one per item, as "Item: value" (with currency; quantity × price when given). If the note already has sections, reuse their names; otherwise split into #Income and #Expenses only if both kinds appear. Don't invent values; anything without a number becomes a "//" comment. Dictation: "${transcript}"`,
+    es: `Convierte este dictado en líneas de cálculo para la nota, una por ítem, como "Ítem: valor" (con moneda; cantidad × precio cuando haya). Si la nota ya tiene secciones, usa sus nombres; si no, separa en #Ingresos y #Gastos solo si aparecen ambos. No inventes valores; lo que no tenga número va como comentario "//". Dictado: "${transcript}"`,
   })[lang];

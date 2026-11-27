@@ -61,6 +61,8 @@ Rules for "lines" (they are inserted into the note and evaluated live by the cal
 - Sections: a line "#Receitas" (no space after #) opens a named section; entries below it ("Salário: R$ 3.000") belong to it until the next "#Name".
   "#Receitas" inside an expression is the section's sum: "Total #Receitas", "Saldo: #Receitas - #Despesas" (expenses may be written as positive or negative; they are subtracted by absolute value), "Saldo %" = saldo as % of income.
   For budgets, always organize money into #Receitas / #Despesas (or the user's own names) with a total per section, a "Saldo" line and "Saldo %".
+- Income vs expense: income = receitas, ganhos, recebimentos, vendas, lucro, faturamento, salário, honorários, prestação de serviços, cachê, entradas, "recebi/vendi/ganhei" (income, revenue, sales, earnings; ingresos, ventas, ganancias). Expenses = despesas, gastos, compras, dispêndios, débitos, pagamentos, custos, contas, boletos, saídas, cartão de crédito, "comprei/paguei/gastei" (expenses, costs, purchases, bills; gastos, egresos, compras, pagos).
+- If the note already has sections (e.g. "#Despesas", "#Gastos", "#Receitas"), add new entries under the EXISTING section names — never create a duplicate section with a synonym.
 - Entries use "Label: value". Write money with the currency symbol (R$ 1.500,00). Quantities (people, days, units) stay plain numbers without currency.
 Keep "explanation" to 1-3 sentences. "followups": up to 3 short follow-up ideas.`;
 }

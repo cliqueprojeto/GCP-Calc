@@ -1,15 +1,17 @@
 /** Bloco de áudio: anotação de voz guardada na nota, com transcrição e conversão em cálculo. */
 import { useEffect, useState } from 'react';
-import { AudioLines, Mic } from 'lucide-react';
+import { AudioLines, Check, Mic, Pencil, Trash2 } from 'lucide-react';
 import type { Block } from '../lib/types';
 import { useLang, useT, LOCALES } from '../i18n';
 
 type AudioB = Extract<Block, { type: 'audio' }>;
 
-export function AudioBlock({ block, onTranscribe }: { block: AudioB; onTranscribe(): void }) {
+export function AudioBlock({ block, onTranscribe, onChange, onRemove }: { block: AudioB; onTranscribe(): void; onChange(p: Partial<AudioB>): void; onRemove(): void }) {
   const t = useT();
   const lang = useLang();
   const [url, setUrl] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(block.transcript ?? '');
   useEffect(() => {
     // data URL → blob URL (o <audio> do Android toca melhor assim)
     let u = '';
@@ -40,11 +42,38 @@ export function AudioBlock({ block, onTranscribe }: { block: AudioB; onTranscrib
           </small>
         </div>
         <button className="btn small" onClick={onTranscribe}>
-          <Mic size={14} /> {block.transcript ? t('voice.toCalc') : t('voice.transcribe')}
+          <Mic size={14} /> <span className="hide-xs">{block.transcript ? t('voice.toCalc') : t('voice.transcribe')}</span>
+        </button>
+        <button className={`icon-btn ${editing ? 'on' : ''}`} title={t('voice.editText')} onClick={() => (setDraft(block.transcript ?? ''), setEditing(!editing))}>
+          <Pencil size={15} />
+        </button>
+        <button
+          className="icon-btn danger"
+          title={t('voice.deleteMemo')}
+          onClick={() => {
+            if (confirm(t('voice.confirmDelete'))) onRemove();
+          }}
+        >
+          <Trash2 size={15} />
         </button>
       </div>
       {url && <audio controls preload="metadata" src={url} />}
-      {block.transcript && <p className="audio-text">“{block.transcript}”</p>}
+      {editing ? (
+        <div className="audio-edit">
+          <textarea className="input" rows={3} value={draft} autoFocus placeholder={t('voice.typeHere')} onChange={(e) => setDraft(e.target.value)} />
+          <button
+            className="btn small primary"
+            onClick={() => {
+              onChange({ transcript: draft.trim() || undefined });
+              setEditing(false);
+            }}
+          >
+            <Check size={14} /> {t('common.save')}
+          </button>
+        </div>
+      ) : (
+        block.transcript && <p className="audio-text">“{block.transcript}”</p>
+      )}
     </div>
   );
 }

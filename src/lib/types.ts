@@ -123,6 +123,8 @@ export interface Settings {
   lineNumbers: boolean;
   /** permissões pedidas no primeiro uso (microfone e notificações) e o que o usuário escolheu */
   permissions?: { asked: boolean; mic?: 'granted' | 'denied' | 'prompt' | 'unsupported'; notify?: 'granted' | 'denied' | 'prompt' | 'unsupported'; at?: number };
+  /** bloqueio por senha (hash), código de recuperação e digital */
+  lock?: import('./lock').LockConfig;
   /** manter o áudio na nota ao transcrever */
   keepAudio?: boolean;
   /** separadores e moeda automáticos ao digitar / dar Enter */

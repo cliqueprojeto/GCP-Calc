@@ -402,3 +402,42 @@ describe('números por extenso no ditado', () => {
     expect(dictationToLines('Comprei arroz por vinte e sete reais e noventa centavos, café dezoito reais e paguei a luz de cento e cinquenta reais', 'pt', { decimal: 'comma', symbol: 'R$' })).toEqual(['Arroz: R$ 27,90', 'Café: R$ 18', 'Luz: R$ 150']);
   });
 });
+
+describe('vocabulário de receitas e despesas', () => {
+  it('reconhece sinônimos, plural e verbos', async () => {
+    const { classifyTerm } = await import('../src/engine/vocab');
+    for (const w of ['Receitas', 'receita', 'Ganhos', 'Recebimentos', 'Vendas', 'Lucro', 'Prestação de serviços', 'Faturamento', 'Salário', 'Honorários', 'Entradas', 'recebi do cliente', 'Income', 'Revenue', 'Sales', 'Ingresos', 'Ventas', 'Cachê', 'Aluguel recebido'])
+      expect([w, classifyTerm(w)]).toEqual([w, 'income']);
+    for (const w of ['Despesas', 'despesa', 'Compras', 'Gastos', 'Dispêndios', 'Débitos', 'Pagamentos', 'Saídas', 'Custos', 'Contas', 'Boletos', 'paguei a luz', 'comprei pão', 'Cartão de crédito', 'Expenses', 'Bills', 'Gastos fijos', 'Egresos', 'Mercado'])
+      expect([w, classifyTerm(w)]).toEqual([w, 'expense']);
+    expect(classifyTerm('Tipo de material')).toBeUndefined();
+    expect(classifyTerm('Viagem')).toBeUndefined();
+  });
+  it('colore as seções com os sinônimos', () => {
+    const doc = evaluateDocument(['#Ganhos', 'Freela: R$ 800', '#Compras', 'Pão: R$ 12'].join('\n'), defaultContext({ rates }));
+    expect(doc.lines[0].tone).toBe('income');
+    expect(doc.lines[2].tone).toBe('expense');
+  });
+});
+
+describe('inserção nas seções existentes', () => {
+  it('ditado vai para a última linha da seção certa, antes do total', async () => {
+    const { insertIntoSections } = await import('../src/lib/smartInsert');
+    const { dictationItems } = await import('../src/lib/dictation');
+    const text = ['#Receitas', 'Salário: R$ 3.000', 'total', '', '#Despesas', 'Aluguel: R$ 1.200', 'Luz: R$ 150', 'Total #Despesas', '', 'Saldo: receitas - despesas'].join('\n');
+    const ctx = defaultContext({ rates });
+    const items = dictationItems('Comprei pão por 12,50 e paguei a internet 99,90. Recebi 800 de um freela', 'pt', { decimal: 'comma', symbol: 'R$' });
+    const r = insertIntoSections(text, evaluateDocument(text, ctx).lines, items);
+    expect(r.text.split('\n')).toEqual(['#Receitas', 'Salário: R$ 3.000', 'Freela: R$ 800', 'total', '', '#Despesas', 'Aluguel: R$ 1.200', 'Luz: R$ 150', 'Pão: R$ 12,50', 'Internet: R$ 99,90', 'Total #Despesas', '', 'Saldo: receitas - despesas']);
+    const vals = run(r.text);
+    expect(vals[3]).toBe('R$ 3.800,00');
+    expect(vals[10]).toBe('R$ 1.462,40');
+    expect(vals[12]).toBe('R$ 2.337,60');
+  });
+  it('linhas da IA com títulos e totais não duplicam a seção', async () => {
+    const { insertIntoSections } = await import('../src/lib/smartInsert');
+    const text = ['#Gastos', 'Mercado: R$ 300', 'total'].join('\n');
+    const r = insertIntoSections(text, evaluateDocument(text, defaultContext({ rates })).lines, ['#Despesas', 'Farmácia: R$ 45', 'Total #Despesas'].map((line) => ({ line })));
+    expect(r.text.split('\n')).toEqual(['#Gastos', 'Mercado: R$ 300', 'Farmácia: R$ 45', 'total']);
+  });
+});

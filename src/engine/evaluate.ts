@@ -6,6 +6,7 @@
  * interpretado: números com separadores do idioma, porcentagens, unidades,
  * moedas, tags personalizadas, variáveis, funções, datas e totais.
  */
+import { classifyTerm } from './vocab';
 import { findUnit, fold, unitById, MAX_UNIT_WORDS, type Unit } from './units';
 import { findCurrency, SYMBOLS, MAX_CURRENCY_WORDS } from './currencies';
 import {
@@ -226,13 +227,11 @@ export interface Section {
 
 export type Tone = 'income' | 'expense';
 
-const INCOME_RE = /receit|renda|entrad|ganho|sal[aá]ri|faturament|vendas?\b|cr[eé]dito|income|revenue|earning|sales|ingres|ventas|cobro/i;
-const EXPENSE_RE = /despes|gasto|custo|sa[ií]da|pagament|contas\b|d[eé]bito|expense|cost|spend|bills|outgo|egreso|pagos/i;
 
 /** Receita (verde) ou despesa (vermelho), pelo nome da seção ou pelo sinal da soma. */
 export function sectionTone(name: string, values: Value[] = []): Tone | undefined {
-  if (EXPENSE_RE.test(name)) return 'expense';
-  if (INCOME_RE.test(name)) return 'income';
+  const k = classifyTerm(name);
+  if (k) return k;
   const money = values.filter((v) => v.unit?.dim === 'money');
   if (money.length && money.every((v) => v.n < 0)) return 'expense';
   return undefined;

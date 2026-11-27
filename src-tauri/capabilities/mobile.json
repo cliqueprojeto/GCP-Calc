@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Permissões só do celular (desbloqueio com digital)",
+  "platforms": ["android", "iOS"],
+  "windows": ["main"],
+  "permissions": ["biometric:default"]
+}

@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { Bell, Camera, Check, Mic, ShieldCheck, X } from 'lucide-react';
 import { Modal } from './ui';
 import { useData } from '../store/data';
-import { micState, notifyState, requestAll, requestMic, requestNotify, type PermState } from '../lib/permissions';
+import { micState, nativeAllGranted, notifyState, requestAll, requestMic, requestNotify, type PermState } from '../lib/permissions';
+import { flushSave } from '../store/data';
 import { useT } from '../i18n';
 
 function StateTag({ s }: { s?: PermState }) {
@@ -20,12 +21,22 @@ export function PermissionsFirstRun() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
+    // Android com tudo já liberado (ex.: reinstalação): registra e não mostra a tela
+    if (loaded && !perms?.asked && nativeAllGranted()) {
+      setSettings({ permissions: { asked: true, mic: 'granted', notify: 'granted', at: Date.now() } });
+      void flushSave();
+      return;
+    }
     if (loaded && !perms?.asked) {
       const id = setTimeout(() => setOpen(true), 1200);
       return () => clearTimeout(id);
     }
   }, [loaded, perms?.asked]);
-  const save = (p: { mic?: PermState; notify?: PermState }) => setSettings({ permissions: { asked: true, ...p, at: Date.now() } });
+  // grava na hora (se o sistema fechar o app durante o pedido, a escolha não se perde)
+  const save = (p: { mic?: PermState; notify?: PermState }) => {
+    setSettings({ permissions: { asked: true, ...p, at: Date.now() } });
+    void flushSave();
+  };
   return (
     <Modal open={open} onClose={() => (save({ mic: perms?.mic, notify: perms?.notify }), setOpen(false))} title={t('perm.title')} className="perm-modal">
       <div className="perm-hero">
@@ -66,6 +77,7 @@ export function PermissionsFirstRun() {
           disabled={busy}
           onClick={async () => {
             setBusy(true);
+            save({});
             const r = await requestAll();
             save(r);
             setBusy(false);

@@ -17,6 +17,8 @@ interface UiState {
   search: string;
   /** bloco de cálculo focado (para o teclado e o assistente) */
   focusBlock?: string;
+  /** app desbloqueado nesta sessão (bloqueio por senha) */
+  unlocked?: boolean;
   /** pedidos vindos do teclado de operadores: gravar voz / anexar comprovante */
   voiceRequest?: number;
   attachRequest?: number;

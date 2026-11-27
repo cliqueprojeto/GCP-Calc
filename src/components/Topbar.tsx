@@ -40,7 +40,8 @@ export function Topbar() {
       <div className="tb-spacer" />
       {update && (
         <button className="tb-pill update" onClick={() => go({ kind: 'settings', section: 'updates' })}>
-          <Download size={14} /> {t('update.available', { v: update.version })}
+          <Download size={14} /> <span className="tb-label">{t('update.available', { v: update.version })}</span>
+          <span className="tb-short">v{update.version}</span>
         </button>
       )}
       <button className={`tb-pill rates ${age > 12 * 3600_000 ? 'stale' : ''}`} title={ratesTitle} onClick={() => rates.refresh(true)}>

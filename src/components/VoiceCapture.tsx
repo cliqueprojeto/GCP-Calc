@@ -8,7 +8,8 @@ import { Modal, Toggle } from './ui';
 import { evaluateDocument, newDocState } from '../engine/evaluate';
 import { currencySymbol, formatValue, type EvalContext, type FormatOptions } from '../engine/value';
 import { audioProviders, blobToDataUrl, canLiveDictate, canRecord, MAX_RECORD_MS, Recorder, transcribe, type Recording } from '../lib/voice';
-import { dictationGoal, dictationToLines } from '../lib/dictation';
+import { dictationGoal, dictationItems } from '../lib/dictation';
+import { classifyTerm, type Kind } from '../engine/vocab';
 import { offlineAvailable, transcribeOffline } from '../lib/whisper';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
@@ -17,6 +18,8 @@ import { useT } from '../i18n';
 
 export interface VoiceResult {
   lines: string[];
+  /** itens com a classificação receita/despesa (para entrarem na seção que já existe) */
+  items: { line: string; tone?: Kind }[];
   organize: boolean;
   transcript: string;
   audio?: { src: string; mime: string; ms: number; transcript: string };
@@ -47,8 +50,11 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
     void offlineAvailable().then(setOffline);
   }, []);
 
+  const toneMap = useRef(new Map<string, Kind | undefined>());
   const toLines = async (text: string) => {
-    const offline = dictationToLines(text, ctx.lang, { decimal: ctx.decimal, symbol: currencySymbol(useData.getState().settings.baseCurrency, fmt) });
+    const items = dictationItems(text, ctx.lang, { decimal: ctx.decimal, symbol: currencySymbol(useData.getState().settings.baseCurrency, fmt) });
+    toneMap.current = new Map(items.map((x) => [x.line, x.tone]));
+    const offline = items.map((x) => x.line);
     setLines(offline.join('\n'));
     setUsedAi(false);
     if (!providers.length || !text.trim()) return;
@@ -147,7 +153,9 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
     const out = lines.split('\n').filter((l) => l.trim());
     let audio: VoiceResult['audio'];
     if (keep && rec && !existing) audio = { src: await blobToDataUrl(rec.blob), mime: rec.mime, ms: rec.ms, transcript };
-    onDone({ lines: out, organize, audio, transcript });
+    const overall = classifyTerm(transcript);
+    const items = out.map((line) => ({ line, tone: toneMap.current.get(line) ?? classifyTerm(line) ?? overall }));
+    onDone({ lines: out, items, organize, audio, transcript });
     onClose();
   };
 
