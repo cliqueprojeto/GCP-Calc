@@ -41,6 +41,29 @@ export interface Recording {
   ms: number;
   /** texto do ditado ao vivo (quando houve) */
   live: string;
+  /** áudio cru do microfone já em 16 kHz mono (para o Whisper offline) */
+  pcm16k?: Float32Array;
+}
+
+/** reamostragem linear para 16 kHz */
+export function resampleTo16k(chunks: Float32Array[], rate: number): Float32Array {
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const all = new Float32Array(total);
+  let o = 0;
+  for (const c of chunks) {
+    all.set(c, o);
+    o += c.length;
+  }
+  if (rate === 16000) return all;
+  const ratio = rate / 16000;
+  const out = new Float32Array(Math.floor(total / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const x = i * ratio;
+    const a = Math.floor(x);
+    const f = x - a;
+    out[i] = all[a] * (1 - f) + (all[a + 1] ?? all[a]) * f;
+  }
+  return out;
 }
 
 /** Gravador com medidor de nível e ditado ao vivo opcional. */
@@ -55,6 +78,8 @@ export class Recorder {
   private finalText = '';
   private interim = '';
   private stopping = false;
+  private pcm: Float32Array[] = [];
+  private rate = 48000;
 
   constructor(
     private lang: Lang,
@@ -75,7 +100,23 @@ export class Recorder {
       this.ctx = new AudioContext();
       const an = this.ctx.createAnalyser();
       an.fftSize = 512;
-      this.ctx.createMediaStreamSource(this.stream).connect(an);
+      const srcNode = this.ctx.createMediaStreamSource(this.stream);
+      srcNode.connect(an);
+      // cópia crua do áudio para a transcrição offline
+      this.rate = this.ctx.sampleRate;
+      try {
+        const sp = this.ctx.createScriptProcessor(4096, 1, 1);
+        const mute = this.ctx.createGain();
+        mute.gain.value = 0;
+        sp.onaudioprocess = (e) => {
+          if (!this.stopping) this.pcm.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        };
+        srcNode.connect(sp);
+        sp.connect(mute);
+        mute.connect(this.ctx.destination);
+      } catch {
+        /* sem captura crua: usa o arquivo gravado */
+      }
       const buf = new Uint8Array(an.fftSize);
       const loop = () => {
         an.getByteTimeDomainData(buf);
@@ -148,7 +189,8 @@ export class Recorder {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.ctx?.close().catch(() => undefined);
     const mime = rec?.mimeType || 'audio/webm';
-    return { blob: new Blob(this.chunks, { type: mime }), mime, ms, live: (this.finalText + this.interim).trim() };
+    const pcm16k = this.pcm.length ? resampleTo16k(this.pcm, this.rate) : undefined;
+    return { blob: new Blob(this.chunks, { type: mime }), mime, ms, live: (this.finalText + this.interim).trim(), pcm16k };
   }
 
   cancel() {

@@ -5,6 +5,7 @@
  */
 import type { Lang } from './types';
 import { classifyTerm, type Kind } from '../engine/vocab';
+import { buildFormula, type KnownNames } from './voiceFormulas';
 
 const VERBS: Record<Lang, RegExp> = {
   pt: /^(?:eu\s+)?(?:comprei|paguei|gastei|recebi|ganhei|vendi|coloquei|botei|anota(?:r)?|lança(?:r)?|lancei|mais|também|tambem|e|depois|aí|ai|então|entao)(?![\p{L}\p{N}])\s*/iu,
@@ -38,13 +39,15 @@ const UNITS: Record<string, number> = {
 const SCALES: Record<string, number> = { mil: 1000, thousand: 1000, hundred: 100, milhao: 1e6, milhoes: 1e6, millon: 1e6, millones: 1e6, million: 1e6 };
 const fold = (w: string) => w.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-export function wordsToNumbers(text: string): string {
+export function wordsToNumbers(text: string, lang?: Lang): string {
+  // "dos" é "dois" só em espanhol (em português é "de os")
+  const skip = lang === 'es' ? new Set<string>() : new Set(['dos']);
   const parts = text.split(/(\s+|[,.;!?-])/);
   const out: string[] = [];
   let i = 0;
   while (i < parts.length) {
     const w = fold(parts[i]);
-    if (!(w in UNITS) && !(w in SCALES && w !== 'hundred')) {
+    if (skip.has(w) || (!(w in UNITS) && !(w in SCALES && w !== 'hundred'))) {
       out.push(parts[i++]);
       continue;
     }
@@ -55,7 +58,7 @@ export function wordsToNumbers(text: string): string {
     let last = i;
     while (j < parts.length) {
       const t = fold(parts[j]);
-      if (t in UNITS) {
+      if (t in UNITS && !skip.has(t)) {
         cur += UNITS[t];
         last = j;
       } else if (t in SCALES) {
@@ -92,14 +95,26 @@ function normalizeMoney(t: string, lang: Lang, dec: string): string {
   return s;
 }
 
-export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string }): string[] {
+export function dictationToLines(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string; known?: KnownNames }): string[] {
   return dictationItems(text, lang, opts).map((x) => x.line);
 }
 
 /** Itens do ditado com a classificação (receita/despesa) vinda do que foi dito ("comprei", "recebi"…). */
-export function dictationItems(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string }): { line: string; tone?: Kind }[] {
+export function dictationItems(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string; known?: KnownNames }): { line: string; tone?: Kind; formula?: boolean }[] {
+  // frases que pedem cálculo viram fórmulas (com as seções e variáveis da nota); o resto, lançamentos
+  const formulas: { line: string; formula: true }[] = [];
+  const entries: string[] = [];
+  for (const sentence of text.split(/[.!?;\n]+/).map((x) => x.trim()).filter(Boolean)) {
+    const f = buildFormula(sentence, opts.known ?? { sections: [], vars: [] }, lang);
+    if (f) formulas.push({ line: f, formula: true });
+    else entries.push(sentence);
+  }
+  return [...entryItems(entries.join('. '), lang, opts), ...formulas];
+}
+
+function entryItems(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; symbol: string }): { line: string; tone?: Kind }[] {
   const dec = opts.decimal === 'comma' ? ',' : '.';
-  const src = normalizeMoney(wordsToNumbers(text.replace(/\s+/g, ' ').trim()), lang, dec);
+  const src = normalizeMoney(wordsToNumbers(text.replace(/\s+/g, ' ').trim(), lang), lang, dec);
   // separa itens: pontuação, quebras e " e " / " and " / " y " antes de uma palavra
   const parts = src
     .split(/[;\n]|[.!?](?=\s|$)|,(?=\s*\D)|\s+(?:e|and|y|mais|plus)\s+(?=[\p{L}])/u)

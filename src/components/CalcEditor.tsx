@@ -71,6 +71,8 @@ export interface CalcEditorProps {
   attachCount?(lineIndex: number): number;
   onAttach?(lineIndex: number): void;
   onShowAttach?(lineIndex: number): void;
+  /** frase pedindo cálculo ("faça o total de receitas menos despesas"): fórmula sugerida */
+  formulaFor?(lineIndex: number): string | null;
   /** nomes conhecidos na nota (variáveis e seções) para o autocompletar */
   known?: Suggestion[];
 }
@@ -116,7 +118,7 @@ function measure(ta: HTMLTextAreaElement, s: string): number {
   return c.measureText(s).width;
 }
 
-export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, onReminder, hasReminder, attachCount, onAttach, onShowAttach, known = [] }: CalcEditorProps) {
+export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, autoFocus, onAiCommand, onReminder, hasReminder, attachCount, onAttach, onShowAttach, formulaFor, known = [] }: CalcEditorProps) {
   const t = useT();
   const taRef = useRef<HTMLTextAreaElement>(null);
   const srcRef = useRef<HTMLDivElement>(null);
@@ -430,6 +432,25 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
         {lines.map((_, i) => {
           const r = results[i];
           if (!r) return <div key={i} />;
+          const fx = formulaFor?.(i);
+          if (fx)
+            return (
+              <div key={i} className="res fx">
+                <button
+                  className="res-fx"
+                  title={t('fx.apply', { f: fx })}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    const arr = text.split('\n');
+                    arr[i] = (arr[i].match(/^\s*/)?.[0] ?? '') + fx;
+                    onChange(arr.join('\n'));
+                    toast(t('fx.done', { f: fx }), 'ok');
+                  }}
+                >
+                  ƒx <span>{fx.length > 34 ? fx.slice(0, 33) + '…' : fx}</span>
+                </button>
+              </div>
+            );
           if (r.kind === 'value' && r.value) {
             const s = formatValue(r.value, fmt);
             return (

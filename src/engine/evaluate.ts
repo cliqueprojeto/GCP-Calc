@@ -49,6 +49,8 @@ kw(['on', 'acrescimo', 'de acrescimo', 'a mais', 'recargo'], { k: 'on' });
 kw(['percent', 'por cento', 'porcento', 'por ciento', 'porciento', 'pct'], { k: 'pctword' });
 kw(['sum', 'total', 'soma', 'suma', 'totais', 'subtotal'], { k: 'agg', name: 'sum' });
 kw(['average', 'avg', 'mean', 'media', 'promedio'], { k: 'agg', name: 'avg' });
+kw(['maior', 'maximo', 'mayor', 'maximum', 'highest'], { k: 'agg', name: 'max' });
+kw(['menor', 'minimo', 'minimum', 'lowest'], { k: 'agg', name: 'min' });
 kw(['prev', 'previous', 'ans', 'anterior', 'ultimo', 'resultado anterior'], { k: 'agg', name: 'prev' });
 kw(['count', 'contagem', 'conteo', 'quantidade de linhas'], { k: 'agg', name: 'count' });
 kw(['today', 'hoje', 'hoy'], { k: 'date', name: 'today' });
@@ -409,7 +411,7 @@ function classify(phrase: string, f: string, lower: string, e: ClassifyEnv): Tok
     const k = KW[f];
     // "in" pode ser polegada: decide-se na análise (ver tidy)
     if (k.k === 'conv' && f === 'in' && e.prevValue && unit && !nextIsTarget(e)) return { k: 'unit', u: unit, word: phrase };
-    if (k.k === 'agg' && k.name === 'min') return null;
+    if (k.k === 'agg' && k.name === 'min' && f === 'min') return null; // "min" = minutos
     if (k.k === 'scale' && !e.prevValue) return 'skip';
     return k;
   }
@@ -465,7 +467,7 @@ function tidy(toks: Tok[]): Tok[] {
         // operador sem valor antes ("com leite", "+5"): ignora
         continue;
       }
-      if (t.k === 'agg' && next && (next.k === 'num' || next.k === 'cur' || next.k === 'var' || next.k === 'section')) {
+      if (t.k === 'agg' && next && (next.k === 'num' || next.k === 'cur' || next.k === 'var' || (next.k === 'section' && t.name === 'sum'))) {
         // "total 500", "média 7": aqui a palavra é rótulo, não total
         continue;
       }
@@ -744,8 +746,16 @@ class Parser {
         if (!v) throw new CalcError('noline', String(p.n));
         return { ...v };
       }
-      case 'agg':
+      case 'agg': {
+        // "média #Gastos", "maior #Despesas": conta sobre a seção
+        const nx = this.peek();
+        if (nx?.k === 'section' && p.name !== 'sum' && p.name !== 'prev') {
+          this.i++;
+          const sec = this.scope.sections?.get(nx.name);
+          return this.aggregate(p.name, sec ? sectionValues(sec) : []);
+        }
         return this.aggregate(p.name);
+      }
       case 'section': {
         this.usedAggregate = true;
         const sec = this.scope.sections?.get(p.name);
@@ -783,18 +793,26 @@ class Parser {
     const base = g.find((v) => (v.unit?.dim ?? '-') === dim) ?? g[0];
     let acc: Value = { n: 0, unit: base.unit };
     let count = 0;
+    const each: Value[] = [];
     for (const v of g) {
       if ((v.unit?.dim ?? '-') !== dim && v.unit && base.unit) continue;
       // num total em dinheiro (ou outra unidade), números soltos e percentuais ficam de fora
       if (dim !== '-' && (!v.unit || v.pct)) continue;
       try {
         acc = add(acc, v.pct ? { n: v.n } : v, 1, this.ctx);
+        each.push(add({ n: 0, unit: base.unit }, v.pct ? { n: v.n } : v, 1, this.ctx));
         count++;
       } catch {
         /* valores incompatíveis ficam fora do total */
       }
     }
     if (name === 'avg') return { ...acc, n: count ? acc.n / count : 0 };
+    if ((name === 'max' || name === 'min') && each.length) {
+      // despesas lançadas como negativas: "maior gasto" é o de maior valor absoluto
+      const allNeg = each.every((v) => v.n <= 0);
+      const key = (v: Value) => (allNeg ? Math.abs(v.n) : v.n);
+      return each.reduce((a, b) => ((name === 'max' ? key(b) > key(a) : key(b) < key(a)) ? b : a));
+    }
     return acc;
   }
 
@@ -1114,7 +1132,8 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
 
   // "Sobra %": percentual de um valor (ou da linha anterior) sobre as receitas
   const pm = line.match(PCT_LINE_RE);
-  if (pm && !findUnit(pm[2].trim()) && (st.vars.has(fold(pm[2].trim())) || st.prev)) {
+  // só o atalho "Sobra %" (ou "Sobra % = 66%"); se depois do ":" vier uma conta, é rótulo comum
+  if (pm && /^\s*(?:[=:]\s*[\d.,\sxX%?]*)?$/.test(pm[4]) && !findUnit(pm[2].trim()) && (st.vars.has(fold(pm[2].trim())) || st.prev)) {
     const v = st.vars.get(fold(pm[2].trim())) ?? st.prev!;
     const base = incomeBase(st, ctx);
     const segments: Segment[] = [

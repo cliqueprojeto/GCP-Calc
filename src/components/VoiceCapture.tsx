@@ -10,7 +10,8 @@ import { currencySymbol, formatValue, type EvalContext, type FormatOptions } fro
 import { audioProviders, blobToDataUrl, canLiveDictate, canRecord, MAX_RECORD_MS, Recorder, transcribe, type Recording } from '../lib/voice';
 import { dictationGoal, dictationItems } from '../lib/dictation';
 import { classifyTerm, type Kind } from '../engine/vocab';
-import { offlineAvailable, transcribeOffline } from '../lib/whisper';
+import type { KnownNames } from '../lib/voiceFormulas';
+import { offlineAvailable, offlineReady, transcribeOffline, warmUp } from '../lib/whisper';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { nextStep, orderedProviders } from '../ai/assist';
@@ -27,7 +28,7 @@ export interface VoiceResult {
 
 const mmss = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
-export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose }: { ctx: EvalContext; fmt: FormatOptions; noteContext: string; existing?: { blob: Blob; ms: number; transcript?: string }; onDone(r: VoiceResult): void; onClose(): void }) {
+export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText = '', onDone, onClose }: { ctx: EvalContext; fmt: FormatOptions; noteContext: string; existing?: { blob: Blob; ms: number; transcript?: string }; known?: KnownNames; blockText?: string; onDone(r: VoiceResult): void; onClose(): void }) {
   const t = useT();
   const settings = useData((s) => s.settings);
   const setSettings = useData((s) => s.setSettings);
@@ -46,14 +47,35 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
   const audioAi = audioProviders(settings.ai.providers);
   const [offline, setOffline] = useState<boolean | null>(null);
   const [translate, setTranslate] = useState(false);
+  const [model, setModel] = useState<'loading' | 'ready' | 'error' | null>(null);
+  const [modelErr, setModelErr] = useState('');
+  const [workStart, setWorkStart] = useState(0);
+  const [, tick] = useState(0);
   useEffect(() => {
-    void offlineAvailable().then(setOffline);
+    if (phase !== 'work') return;
+    const id = setInterval(() => tick((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+  useEffect(() => {
+    // já começa a preparar o Whisper: quando terminar de falar, ele está pronto
+    void offlineAvailable().then((ok) => {
+      setOffline(ok);
+      if (ok) {
+        setModel(offlineReady() ? 'ready' : 'loading');
+        warmUp(ctx.lang).then(
+          () => setModel('ready'),
+          (e) => (setModel('error'), setModelErr(String((e as Error)?.message ?? e))),
+        );
+      }
+    });
   }, []);
 
   const toneMap = useRef(new Map<string, Kind | undefined>());
+  const formulaSet = useRef(new Set<string>());
   const toLines = async (text: string) => {
-    const items = dictationItems(text, ctx.lang, { decimal: ctx.decimal, symbol: currencySymbol(useData.getState().settings.baseCurrency, fmt) });
+    const items = dictationItems(text, ctx.lang, { decimal: ctx.decimal, symbol: currencySymbol(useData.getState().settings.baseCurrency, fmt), known });
     toneMap.current = new Map(items.map((x) => [x.line, x.tone]));
+    formulaSet.current = new Set(items.filter((x) => x.formula).map((x) => x.line));
     const offline = items.map((x) => x.line);
     setLines(offline.join('\n'));
     setUsedAi(false);
@@ -74,16 +96,21 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
 
   const process = async (r: Recording) => {
     setPhase('work');
+    setWorkStart(Date.now());
     let text = translate ? '' : transcript || r.live;
     // 1º Whisper embutido (offline); 2º IA configurada
+    let offlineErr = '';
     if (!text && (await offlineAvailable())) {
-      setStatus(t('voice.offlineWorking'));
+      setStatus(offlineReady() ? t('voice.offlineWorking') : t('voice.offlineLoading'));
       try {
-        text = await transcribeOffline(r.blob, ctx.lang, {
+        // áudio cru do microfone (não depende do decodificador do sistema); senão, o arquivo gravado
+        text = await transcribeOffline(r.pcm16k ?? r.blob, ctx.lang, {
           translate,
-          onStatus: (s) => setStatus(s === 'loading' ? t('voice.offlineLoading') : s === 'working' ? t('voice.offlineWorking') : `${t('voice.offlineLoading')} ${s}%`),
+          onStatus: (s) => setStatus(s === 'working' ? t('voice.offlineWorking') : t('voice.offlineLoading')),
         });
+        if (!text.trim()) offlineErr = t('voice.offlineEmpty');
       } catch (e) {
+        offlineErr = String((e as Error)?.message ?? e).slice(0, 160);
         console.warn('whisper', e);
       }
     }
@@ -95,6 +122,7 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
         toast(`${t('voice.transcribeFail')}: ${String((e as Error)?.message || e).slice(0, 140)}`, 'error');
       }
     }
+    if (!text && offlineErr && !audioAi.length) toast(t('voice.offlineFailed', { err: offlineErr }), 'error');
     setTranscript(text);
     await toLines(text);
     setStatus('');
@@ -144,17 +172,22 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
     await process(out);
   };
 
+  // prévia calculada junto com o bloco (as seções e variáveis da nota valem nas fórmulas)
   const preview = useMemo(() => {
-    const doc = evaluateDocument(lines, ctx, newDocState());
-    return lines.split('\n').map((l, i) => ({ l, r: doc.lines[i] }));
-  }, [lines, ctx]);
+    const head = blockText.replace(/\s+$/, '');
+    const offset = head ? head.split('\n').length : 0;
+    const doc = evaluateDocument((head ? head + '\n' : '') + lines, ctx, newDocState());
+    return lines.split('\n').map((l, i) => ({ l, r: doc.lines[offset + i] }));
+  }, [lines, ctx, blockText]);
 
   const finish = async (organize: boolean) => {
     const out = lines.split('\n').filter((l) => l.trim());
     let audio: VoiceResult['audio'];
     if (keep && rec && !existing) audio = { src: await blobToDataUrl(rec.blob), mime: rec.mime, ms: rec.ms, transcript };
     const overall = classifyTerm(transcript);
-    const items = out.map((line) => ({ line, tone: toneMap.current.get(line) ?? classifyTerm(line) ?? overall }));
+    // fórmulas (pelo dicionário ou escritas à mão com # / total) vão para o fim; lançamentos para a seção
+    const isFormula = (l: string) => formulaSet.current.has(l) || /#[\p{L}]|^\s*(total|saldo|média|media|maior|menor|resultado|soma|diferença)\b/iu.test(l);
+    const items = out.map((line) => (isFormula(line) ? { line, formula: true } : { line, tone: toneMap.current.get(line) ?? classifyTerm(line) ?? overall }));
     onDone({ lines: out, items, organize, audio, transcript });
     onClose();
   };
@@ -167,6 +200,13 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
             <Mic size={34} />
           </button>
           <p>{t('voice.idleHint')}</p>
+          {offline && model === 'loading' && (
+            <p className="muted small voice-model">
+              <Loader2 size={12} className="spin" /> {t('voice.modelLoading')}
+            </p>
+          )}
+          {offline && model === 'ready' && <p className="muted small voice-model ok">✓ {t('voice.modelReady')}</p>}
+          {offline && model === 'error' && <p className="muted small voice-model err">{t('voice.offlineFailed', { err: modelErr.slice(0, 120) })}</p>}
           <p className="muted small">
             {offline ? t('voice.offlineOk') : canLiveDictate() ? t('voice.liveOk') : audioAi.length ? t('voice.aiOk', { name: audioAi[0].name }) : t('voice.noAi')}
           </p>
@@ -202,7 +242,10 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, onDone, onClose 
       {phase === 'work' && (
         <div className="voice-work">
           <Loader2 size={26} className="spin" />
-          <p>{status || t('voice.transcribing')}</p>
+          <p>
+            {status || t('voice.transcribing')} <span className="muted">{Math.round((Date.now() - workStart) / 1000)} s</span>
+          </p>
+          {!offlineReady() && offline && <p className="muted small">{t('voice.firstTimeSlow')}</p>}
         </div>
       )}
       {phase === 'review' && (

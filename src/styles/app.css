@@ -4778,3 +4778,114 @@ html.kb-open .voice-fab {
   color: #fff;
   border-color: transparent;
 }
+.voice-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.voice-model.ok {
+  color: var(--ok, #10b981);
+}
+.voice-model.err {
+  color: var(--danger);
+}
+.res-fx {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 0.82em;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  line-height: 1.7;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.res-fx span {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.note.capturing .res-fx {
+  display: none;
+}
+/* tutor do playground */
+.tutor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+.tutor-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 2px;
+}
+.btn.small.solved {
+  color: var(--ok, #10b981);
+  border-color: color-mix(in srgb, var(--ok, #10b981) 50%, var(--border));
+}
+.tutor-panel {
+  margin: 0 10px 12px;
+  padding: 10px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.tutor-panel.pass {
+  border-color: color-mix(in srgb, var(--ok, #10b981) 55%, var(--border));
+  background: color-mix(in srgb, var(--ok, #10b981) 8%, var(--panel));
+}
+.tutor-panel.fail {
+  border-color: color-mix(in srgb, #f59e0b 55%, var(--border));
+}
+.tutor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.md p {
+  margin: 6px 0;
+}
+.md ul {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.md li {
+  margin: 3px 0;
+}
+.md h4 {
+  margin: 10px 0 4px;
+  font-size: 13.5px;
+}
+.md code {
+  font-family: var(--font-calc);
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+.md-code {
+  font-family: var(--font-calc);
+  font-size: 12.5px;
+  background: #0b0d12;
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow: auto;
+  white-space: pre;
+}

@@ -441,3 +441,29 @@ describe('inserção nas seções existentes', () => {
     expect(r.text.split('\n')).toEqual(['#Gastos', 'Mercado: R$ 300', 'Farmácia: R$ 45', 'total']);
   });
 });
+
+describe('fórmulas faladas', () => {
+  const known = { sections: [{ name: 'Ganhos', tone: 'income' as const }, { name: 'Gastos', tone: 'expense' as const }], vars: ['aluguel', 'saldo', 'valor da hora'] };
+  it('entende o pedido e escreve a fórmula com as seções da nota', async () => {
+    const { buildFormula } = await import('../src/lib/voiceFormulas');
+    const f = (s: string) => buildFormula(s, known, 'pt');
+    expect(f('Faça agora o total de receitas menos despesas')).toBe('Saldo: #Ganhos - #Gastos');
+    expect(f('quanto sobrou')).toBe('Saldo: #Ganhos - #Gastos');
+    expect(f('total das despesas')).toBe('Total #Gastos');
+    expect(f('média dos gastos')).toBe('Média: média #Gastos');
+    expect(f('qual o maior gasto')).toBe('Maior: maior #Gastos');
+    expect(f('dez por cento das receitas')).toBe('Resultado: 10% de #Ganhos');
+    expect(f('aluguel vezes doze')).toBe('Resultado: aluguel * 12');
+    expect(f('divida o saldo por 2')).toBe('Resultado: saldo / 2');
+    expect(f('quanto sobra em porcentagem')).toBe('Sobra em %: (#Ganhos - #Gastos) em % de #Ganhos');
+    expect(f('valor da hora vezes 40')).toBe('Resultado: valor da hora * 40');
+    expect(f('comprei pão por 12')).toBeNull();
+  });
+  it('as fórmulas calculam na nota', async () => {
+    const { buildFormula } = await import('../src/lib/voiceFormulas');
+    const base = ['#Ganhos', 'Salário: R$ 3.000', '#Gastos', 'Aluguel: R$ 1.200', 'Mercado: R$ 300'];
+    const lines = ['Faça agora o total de receitas menos despesas', 'média dos gastos', 'quanto sobra em porcentagem', 'dez por cento das receitas'].map((s) => buildFormula(s, known, 'pt')!);
+    const r = run([...base, ...lines].join('\n'));
+    expect(r.slice(5)).toEqual(['R$ 1.500,00', 'R$ 750,00', '50%', 'R$ 300,00']);
+  });
+});

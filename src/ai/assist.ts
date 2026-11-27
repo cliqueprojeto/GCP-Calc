@@ -33,7 +33,7 @@ export interface Turn {
   answer?: string;
 }
 
-const LANG_NAME: Record<Lang, string> = { pt: 'português do Brasil', en: 'English', es: 'español' };
+export const LANG_NAME: Record<Lang, string> = { pt: 'português do Brasil', en: 'English', es: 'español' };
 
 export function systemPrompt(lang: Lang, decimal: 'comma' | 'dot', baseCurrency: string) {
   const dec = decimal === 'comma' ? 'vírgula decimal (1.234,56) e ";" para separar argumentos de funções' : 'decimal point (1,234.56) and ";" or ", " between function arguments';

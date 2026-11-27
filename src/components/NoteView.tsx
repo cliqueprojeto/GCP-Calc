@@ -43,6 +43,7 @@ import { AudioBlock } from './AudioBlock';
 import { VoiceCapture, type VoiceResult } from './VoiceCapture';
 import { dataUrlToBlob } from '../lib/voice';
 import { insertIntoSections } from '../lib/smartInsert';
+import { buildFormula } from '../lib/voiceFormulas';
 import { fold } from '../engine/units';
 import type { Suggestion } from './CalcEditor';
 import { aggregateValues, commonValues, evaluateLine, newDocState, type DocState, type LineResult } from '../engine/evaluate';
@@ -222,6 +223,10 @@ export function NoteView({ note }: { note: Note }) {
       }
     return out.reverse();
   }, [ev]);
+  const knownNames = useMemo(
+    () => ({ sections: known.filter((k) => k.kind === 'section').map((k) => ({ name: k.insert.slice(1), tone: k.tone })), vars: known.filter((k) => k.kind === 'var').map((k) => k.insert) }),
+    [known],
+  );
   const chartData = (b: Extract<Block, { type: 'chart' }>) => chartDataFor(note, b, ev, ctx);
 
   const insertAfter = (afterId: string | undefined, b: Block) => {
@@ -555,6 +560,16 @@ export function NoteView({ note }: { note: Note }) {
                   autoFocus={lastAdded === b.id}
                   onAiCommand={(line, q) => runInlineAi(b.id, line, q)}
                   known={known}
+                  formulaFor={(i) => {
+                    const r = e?.results[i];
+                    const line = b.text.split('\n')[i] ?? '';
+                    if (!r || !line.trim() || ['header', 'comment', 'empty', 'command'].includes(r.kind)) return null;
+                    // só frases (pedidos), não contas já escritas
+                    if (r.kind === 'value' && !/^\s*(faça|faca|faz|calcule|calcula|quanto|quanta|qual|mostre|mostra|quero|coloque|crie|gere|me d[êe]|calculate|show|what|how|make|calcula|cu[aá]nto|muestra)\b/i.test(line)) return null;
+                    if (/[=:#]/.test(line)) return null;
+                    const f = buildFormula(line, knownNames, ctx.lang);
+                    return f && f !== line.trim() ? f : null;
+                  }}
                   attachCount={(i) => {
                     const key = lineKey(b.text, e?.results ?? [], i);
                     return (b.attachments ?? []).filter((a) => a.line === key).length;
@@ -611,7 +626,18 @@ export function NoteView({ note }: { note: Note }) {
               body = <CompareBlock note={note} block={b} ctx={ctx} fmt={fmt} ev={ev} onChange={set} />;
               break;
             case 'code':
-              body = <CodeBlock block={b} onChange={set} />;
+              body = (
+                <CodeBlock
+                  block={b}
+                  onChange={set}
+                  onInsertAfter={(blocks) =>
+                    updateNote(note.id, (n) => {
+                      const i = n.blocks.findIndex((x) => x.id === b.id);
+                      n.blocks.splice(i + 1, 0, ...blocks);
+                    })
+                  }
+                />
+              );
               break;
             case 'audio':
               body = <AudioBlock block={b} onTranscribe={() => openVoice(nearestCalc(b.id), b)} onChange={set} onRemove={() => removeBlock(b.id)} />;
@@ -728,6 +754,11 @@ export function NoteView({ note }: { note: Note }) {
           ctx={ctx}
           fmt={fmt}
           noteContext={ev.context}
+          known={{
+            sections: known.filter((k) => k.kind === 'section').map((k) => ({ name: k.insert.slice(1), tone: k.tone })),
+            vars: known.filter((k) => k.kind === 'var').map((k) => k.insert),
+          }}
+          blockText={(note.blocks.find((x) => x.id === voice.target && x.type === 'calc') as { text?: string } | undefined)?.text ?? ''}
           existing={voice.audio && voice.blob ? { blob: voice.blob, ms: voice.audio.ms, transcript: voice.audio.transcript } : undefined}
           onDone={onVoiceDone}
           onClose={() => setVoice(null)}

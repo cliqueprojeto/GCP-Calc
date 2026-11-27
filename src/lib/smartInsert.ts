@@ -9,6 +9,8 @@ import { classifyTerm, type Kind } from '../engine/vocab';
 export interface Incoming {
   line: string;
   tone?: Kind;
+  /** fórmula pedida (total, saldo, média…): vai para o fim do bloco */
+  formula?: boolean;
 }
 
 interface Sec {
@@ -43,6 +45,10 @@ export function insertIntoSections(text: string, results: LineResult[], incoming
   for (const it of incoming) {
     const l = it.line;
     if (!l.trim()) continue;
+    if (it.formula) {
+      items.push({ line: l, formula: true });
+      continue;
+    }
     const head = l.match(/^\s*#+\s*([^\n]*)$/);
     if (head) {
       headerTone = classifyTerm(head[1]);
@@ -50,14 +56,15 @@ export function insertIntoSections(text: string, results: LineResult[], incoming
       items.push({ line: l });
       continue;
     }
-    if (secs.length && AGG_LINE.test(l)) continue;
+    // totais que vêm junto com um título repetido (a IA refez a seção) saem; fórmulas soltas ficam
+    if (secs.length && headerTone && has(headerTone) && AGG_LINE.test(l)) continue;
     items.push({ line: l, tone: it.tone ?? headerTone ?? classifyTerm(l) });
   }
 
   const bySec = new Map<Sec, string[]>();
   const rest: string[] = [];
   for (const it of items) {
-    const s = it.tone ? has(it.tone) : undefined;
+    const s = it.tone && !it.formula ? has(it.tone) : undefined;
     if (s) bySec.set(s, [...(bySec.get(s) ?? []), it.line]);
     else rest.push(it.line);
   }

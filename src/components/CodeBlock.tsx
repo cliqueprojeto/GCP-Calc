@@ -6,20 +6,69 @@
  * compilador instalado no computador.
  */
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Check, ChevronDown, Copy, Eraser, Keyboard, Loader2, Play, Square, TerminalSquare, Wand2 } from 'lucide-react';
+import { BookOpen, Bug, Check, ChevronDown, Copy, Eraser, GraduationCap, Keyboard, Loader2, Play, Square, Target, TerminalSquare, Wand2, X } from 'lucide-react';
+import { explainCode, fixCode, makeChallenge, reviewSolution, sameOutput } from '../code/tutor';
+import { MiniMarkdown } from '../code/md';
+import { isTransient, orderedProviders } from '../ai/assist';
+import { useData } from '../store/data';
+import { uid } from '../lib/platform';
 import type { Block } from '../lib/types';
 import { LANGS, langMeta, type CodeLang } from '../code/langs';
 import { highlight } from '../code/highlight';
 import { runCode, stopPython, type OutLine } from '../code/run';
 import { copyText, isDesktop } from '../lib/platform';
 import { toast } from '../store/ui';
-import { useT } from '../i18n';
+import { useLang, useT } from '../i18n';
 
 type CodeB = Extract<Block, { type: 'code' }>;
 const PAIRS: Record<string, string> = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
 
-export function CodeBlock({ block, onChange }: { block: CodeB; onChange(p: Partial<CodeB>): void }) {
+export function CodeBlock({ block, onChange, onInsertAfter }: { block: CodeB; onChange(p: Partial<CodeB>): void; onInsertAfter?(blocks: Block[]): void }) {
   const t = useT();
+  const lang = useLang();
+  const [tutor, setTutor] = useState<{ kind: 'explain' | 'fix' | 'challenge' | 'check'; text: string; ok?: boolean; fixed?: string } | null>(null);
+  const [tutorBusy, setTutorBusy] = useState<string | null>(null);
+  const providers = () => {
+    const st = useData.getState();
+    return orderedProviders(st.settings.ai.providers, st.settings.ai.active);
+  };
+  const askTutor = async (kind: 'explain' | 'fix' | 'challenge' | 'check') => {
+    const ps = providers();
+    if (!ps.length) {
+      toast(t('tutor.needAi'), 'error');
+      return;
+    }
+    setTutorBusy(kind);
+    const outText = (block.output ?? []).map((l) => l.s).join('\n');
+    try {
+      if (kind === 'explain') setTutor({ kind, text: await explainCode(ps, lang, block.lang, block.code, outText) });
+      else if (kind === 'fix') {
+        const r = await fixCode(ps, lang, block.lang, block.code, outText || '(sem saída)');
+        setTutor({ kind, text: r.explanation, fixed: r.code && r.code.trim() !== block.code.trim() ? r.code : undefined });
+      } else if (kind === 'challenge') {
+        const c = await makeChallenge(ps, lang, block.lang, `${block.title ?? ''}\n${block.code}`);
+        onInsertAfter?.([
+          { id: uid(), type: 'callout', text: `🎯 ${c.title}\n${c.statement}${c.hint ? `\n💡 ${c.hint}` : ''}`, color: '#f59e0b', icon: 'Target' },
+          { id: uid(), type: 'code', lang: block.lang, code: c.starter, title: c.title, challenge: { title: c.title, statement: c.statement, expected: c.expected, hint: c.hint } },
+        ]);
+        toast(t('tutor.challengeAdded'), 'ok');
+      } else if (kind === 'check' && block.challenge) {
+        // roda a solução e compara com a saída esperada; a IA dá o retorno
+        const r = await runCode(block.lang as CodeLang, block.code, block.stdin ?? '', () => undefined);
+        onChange({ output: r.lines.slice(-500), ok: r.ok, ms: r.ms });
+        const out = r.lines.map((l) => l.s).join('\n');
+        const exact = block.challenge.expected ? sameOutput(out, block.challenge.expected) : undefined;
+        const rv = await reviewSolution(ps, lang, block.lang, block.challenge.statement + (block.challenge.expected ? `\nSaída esperada:\n${block.challenge.expected}` : ''), block.code, out);
+        const ok = exact ?? rv.ok;
+        setTutor({ kind, ok, text: rv.feedback });
+        if (ok) onChange({ challenge: { ...block.challenge, solved: true } });
+      }
+    } catch (e) {
+      toast(isTransient(e) ? t('assist.busy') : `${t('assist.error')}: ${String((e as Error)?.message || e).slice(0, 140)}`, 'error');
+    } finally {
+      setTutorBusy(null);
+    }
+  };
   const meta = langMeta(block.lang);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -249,6 +298,43 @@ export function CodeBlock({ block, onChange }: { block: CodeB; onChange(p: Parti
         </div>
       )}
       {nativeOnly && !isDesktop && <p className="code-note">{t('code.desktopOnlyHint')}</p>}
+      <div className="tutor-bar">
+        <span className="tutor-label">
+          <GraduationCap size={14} /> {t('tutor.title')}
+        </span>
+        <button className="btn small" disabled={!!tutorBusy || !block.code.trim()} onClick={() => askTutor('explain')}>
+          {tutorBusy === 'explain' ? <Loader2 size={13} className="spin" /> : <BookOpen size={13} />} {t('tutor.explain')}
+        </button>
+        {block.ok === false && (
+          <button className="btn small" disabled={!!tutorBusy} onClick={() => askTutor('fix')}>
+            {tutorBusy === 'fix' ? <Loader2 size={13} className="spin" /> : <Bug size={13} />} {t('tutor.fix')}
+          </button>
+        )}
+        {block.challenge ? (
+          <button className={`btn small ${block.challenge.solved ? 'solved' : ''}`} disabled={!!tutorBusy} onClick={() => askTutor('check')}>
+            {tutorBusy === 'check' ? <Loader2 size={13} className="spin" /> : <Check size={13} />} {block.challenge.solved ? t('tutor.solved') : t('tutor.check')}
+          </button>
+        ) : null}
+        <button className="btn small" disabled={!!tutorBusy} onClick={() => askTutor('challenge')}>
+          {tutorBusy === 'challenge' ? <Loader2 size={13} className="spin" /> : <Target size={13} />} {t('tutor.challenge')}
+        </button>
+      </div>
+      {tutor && (
+        <div className={`tutor-panel k-${tutor.kind} ${tutor.ok === true ? 'pass' : tutor.ok === false ? 'fail' : ''}`}>
+          <div className="tutor-head">
+            {tutor.kind === 'check' ? (tutor.ok ? t('tutor.passed') : t('tutor.notYet')) : tutor.kind === 'fix' ? t('tutor.fixTitle') : t('tutor.explainTitle')}
+            <button className="icon-btn" onClick={() => setTutor(null)} aria-label="fechar">
+              <X size={14} />
+            </button>
+          </div>
+          <MiniMarkdown text={tutor.text} />
+          {tutor.fixed && (
+            <button className="btn small primary" onClick={() => (onChange({ code: tutor.fixed!, output: undefined }), setTutor(null), toast(t('tutor.applied'), 'ok'))}>
+              <Check size={13} /> {t('tutor.applyFix')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

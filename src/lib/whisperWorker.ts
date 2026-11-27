@@ -7,8 +7,8 @@ import { env, pipeline, type AutomaticSpeechRecognitionPipeline } from '@hugging
 
 let asr: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
 
-self.onmessage = async (e: MessageEvent<{ audio: Float32Array; lang: string; task: 'transcribe' | 'translate'; base: string }>) => {
-  const { audio, lang, task, base } = e.data;
+self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; task: 'transcribe' | 'translate'; base: string; warm?: boolean }>) => {
+  const { audio, lang, task, base, warm } = e.data;
   try {
     if (!asr) {
       env.allowRemoteModels = false;
@@ -37,6 +37,10 @@ self.onmessage = async (e: MessageEvent<{ audio: Float32Array; lang: string; tas
       }) as Promise<AutomaticSpeechRecognitionPipeline>;
     }
     const run = await asr;
+    if (warm || !audio) {
+      postMessage({ type: 'ready' });
+      return;
+    }
     postMessage({ type: 'status', s: 'working' });
     const out = (await run(audio, { language: lang, task, chunk_length_s: 30, stride_length_s: 5 } as never)) as { text: string } | { text: string }[];
     const text = (Array.isArray(out) ? out.map((x) => x.text).join(' ') : out.text).trim();
