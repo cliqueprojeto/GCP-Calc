@@ -129,6 +129,9 @@ interface Raw {
 
 const WORD_RE = /^[\p{L}_°º][\p{L}\p{N}_]*(?:[²³])?/u;
 
+/** um emoji completo: bandeiras, famílias com ZWJ, tons de pele, variações e teclas (1️⃣) */
+const EMOJI_CLUSTER = /^(?:[0-9#*]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF](?:[\uFE0F\u20E3\p{Emoji_Modifier}\u{E0020}-\u{E007F}]|\u200D[\p{Extended_Pictographic}\u2600-\u27BF])*)/u;
+
 function rawLex(line: string, ctx: EvalContext): Raw[] {
   const out: Raw[] = [];
   let i = 0;
@@ -137,6 +140,7 @@ function rawLex(line: string, ctx: EvalContext): Raw[] {
     const rest = line.slice(i);
     let m: RegExpMatchArray | null;
     if ((m = rest.match(/^\s+/))) out.push({ t: 'ws', s: m[0] });
+    else if ((m = rest.match(/^[0-9#*]\uFE0F?\u20E3/))) out.push({ t: 'other', s: m[0] });
     else if (rest.startsWith('//')) out.push({ t: 'cmt', s: rest });
     else if ((m = rest.match(/^\d{4}-\d{2}-\d{2}(?!\d)/)) || (m = rest.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}(?![\d/])/))) out.push({ t: 'date', s: m[0] });
     else if ((m = rest.match(/^0x[0-9a-f]+|^0b[01]+|^0o[0-7]+/i))) out.push({ t: 'num', s: m[0] });
@@ -173,7 +177,9 @@ function rawLex(line: string, ctx: EvalContext): Raw[] {
       const slash = rest.match(/^[\p{L}]+\/[\p{L}]+/u);
       if (slash && findUnit(slash[0])) out.push({ t: 'word', s: slash[0] });
       else out.push({ t: 'word', s: m[0] });
-    } else out.push({ t: 'other', s: rest[0] });
+    } else if ((m = rest.match(EMOJI_CLUSTER))) out.push({ t: 'other', s: m[0] });
+    // um caractere inteiro (nunca meio emoji: "🛒" ocupa duas unidades UTF-16)
+    else out.push({ t: 'other', s: String.fromCodePoint(rest.codePointAt(0)!) });
     i += out[out.length - 1].s.length;
   }
   return out;
@@ -1017,12 +1023,12 @@ export interface DocResult {
   vars: Map<string, Value>;
 }
 
-const ASSIGN_RE = /^(\s*)((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}_][\p{L}\p{N}_ ]{0,40}?)(\s*=\s*)(?!=)(.+)$/u;
+const ASSIGN_RE = /^(\s*)((?:(?:[0-9#*]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}\u{E0020}-\u{E007F}]*)\s*)*[\p{L}_][\p{L}\p{N}_ ]{0,40}?)(\s*=\s*)(?!=)(.+)$/u;
 const FUNC_RE = /^(\s*)([\p{L}_][\p{L}\p{N}_]*)\(([^)]*)\)(\s*=\s*)(.+)$/u;
-const LABEL_RE = /^(\s*)((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}][^:+*\/^=()\d]{0,58}?[^\s:]?)(:\s*)(.*)$/u;
+const LABEL_RE = /^(\s*)((?:(?:[0-9#*]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}\u{E0020}-\u{E007F}]*)\s*)*[\p{L}][^:+*\/^=()\d]{0,58}?[^\s:]?)(:\s*)(.*)$/u;
 
 /** emojis e símbolos decorativos: enfeitam a linha, mas ficam fora dos nomes de variáveis e seções */
-const EMOJI_G = /[\p{Extended_Pictographic}←-⯿☀-➿️‍⃣\p{Emoji_Modifier}]/gu;
+const EMOJI_G = /[0-9#*]\uFE0F?\u20E3|[\p{Extended_Pictographic}←-⯿☀-➿️‍⃣\p{Emoji_Modifier}\u{1F1E6}-\u{1F1FF}\u{E0020}-\u{E007F}]/gu;
 export const stripEmoji = (s: string) => s.replace(EMOJI_G, '').replace(/\s+/g, ' ').trim();
 
 export interface DocState {
@@ -1032,6 +1038,8 @@ export interface DocState {
   group: Value[];
   prev?: Value;
   sections: Map<string, Section>;
+  /** onde começa o próximo "Subtotal" (seção e posição) */
+  subFrom?: { key?: string; at: number };
   /** títulos abertos por nível ("#", "##"…) para montar a hierarquia */
   heads?: { level: number; key: string }[];
   /** seção atual (chave) */
@@ -1045,7 +1053,7 @@ export function newDocState(): DocState {
 }
 
 /** "#Receitas", "# Despesas do mês", "## Total:" → nome da seção */
-const SECTION_RE = /^(?:#+(?:\s+|(?=[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF]))((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}_](?:[\p{L}\p{N}_ ]|-(?=\p{L}))*?(?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
+const SECTION_RE = /^(?:#+(?:\s+|(?=[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF]))((?:(?:[0-9#*]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}\u{E0020}-\u{E007F}]*)\s*)*[\p{L}_](?:[\p{L}\p{N}_ ]|-(?=\p{L}))*?(?:(?:[0-9#*]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}\u{E0020}-\u{E007F}]*)\s*)*)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
 /** "Total #Receitas: R$ 6.000" ou "#Receitas - #Despesas = 5.700": conta à esquerda, valor esperado à direita */
 const EXPECT_RE = /^(\s*)([^=:]*#[\p{L}_][^=:]*?)(\s*[=:]\s*)(.*)$/u;
 /** "Sobra %", "Sobra % = xx %": percentual sobre as receitas */
@@ -1106,7 +1114,13 @@ function incomeExpense(st: DocState, ctx: EvalContext): { inc?: Value; exp?: Val
   return { inc, exp, all };
 }
 
-const BAL_RE = /^#?\s*(saldo|saldo final|total geral|resultado|balan[cç]o|balance|net|total)\s*:?\s*$/i;
+const BAL_RE = /^#?\s*(saldo|saldo final|saldo do m[eê]s|saldo atual|saldo l[ií]quido|total geral|resultado|resultado final|resultado l[ií]quido|balan[cç]o|balance|net|net result|net income|lucro|lucro l[ií]quido|preju[ií]zo|super[aá]vit|d[eé]ficit|sobra|profit|ganancia|beneficio|beneficio neto|resultado neto|diferen[cç]a|total)\s*:?\s*$/i;
+/** "Total a pagar", "Total das despesas", "Total pago" */
+const TOPAY_RE = /^#?\s*(?:total|soma|subtotal)\s+(?:a\s+pagar|pago|pagos|de\s+despesas|das\s+despesas|de\s+gastos|dos\s+gastos|gasto|gastos|de\s+sa[ií]das|das\s+sa[ií]das|to\s+pay|paid|of\s+expenses|expenses|spent|por\s+pagar|pagado|de\s+los\s+gastos)\s*:?\s*$/i;
+/** "Total a receber", "Total das receitas", "Total recebido" */
+const TOREC_RE = /^#?\s*(?:total|soma|subtotal)\s+(?:a\s+receber|recebido|recebidos|de\s+receitas|das\s+receitas|de\s+ganhos|dos\s+ganhos|de\s+entradas|das\s+entradas|to\s+receive|received|of\s+income|income|por\s+cobrar|a\s+cobrar|cobrado|recibido|de\s+ingresos|de\s+los\s+ingresos)\s*:?\s*$/i;
+/** "Subtotal" sozinho: soma o grupo desde o título ou o subtotal anterior */
+const SUBTOTAL_RE = /^(sub-?total|subtotal parcial|parcial|soma parcial|partial)\s*:?\s*$/i;
 const EXEC_RE = /^(%\s*(?:executad[oa]|exec\.?|executed|ejecutad[oa])|percentual\s+executad[oa]|executad[oa]\s*%|percent\s+executed)\s*:?\s*$/i;
 const TODO_RE = /^(%\s*(?:a\s+executar|por\s+ejecutar|remaining|restante|to\s+execute)|percentual\s+a\s+executar|a\s+executar\s*%)\s*:?\s*$/i;
 
@@ -1152,11 +1166,31 @@ function quickLine(t: string, st: DocState, ctx: EvalContext, afterEmpty: boolea
       return { kind: 'value', value, label: t.replace(/:$/, ''), aggregate: true };
     }
   }
+  // "Subtotal": só os lançamentos desde o título (ou o subtotal anterior)
+  if (SUBTOTAL_RE.test(t)) {
+    const sec = st.section ? st.sections.get(st.section) : undefined;
+    const from = st.subFrom && st.subFrom.key === st.section ? st.subFrom.at : 0;
+    const pool = sec ? sectionValues(sec).slice(from) : st.group;
+    st.subFrom = { key: st.section, at: sec ? sec.values.length : 0 };
+    if (!sec) st.group = [];
+    if (!pool.length) return null;
+    try {
+      return { kind: 'value', value: aggregateValues(pool, 'sum', ctx), label: t.replace(/:$/, ''), aggregate: true, tone: sec?.tone };
+    } catch {
+      return null;
+    }
+  }
+  const toPay = TOPAY_RE.test(t);
+  const toRec = !toPay && TOREC_RE.test(t);
   const isExec = EXEC_RE.test(t);
   const isTodo = TODO_RE.test(t);
   const bal = BAL_RE.exec(t);
-  if (!isExec && !isTodo && !bal) return null;
+  if (!isExec && !isTodo && !bal && !toPay && !toRec) return null;
   const { inc, exp, all } = incomeExpense(st, ctx);
+  if (toPay || toRec) {
+    const v = toPay ? exp : inc;
+    return v ? { kind: 'value', value: v, label: t.replace(/:$/, ''), aggregate: true, tone: toPay ? 'expense' : 'income' } : null;
+  }
   if (isExec || isTodo) {
     const pv = plannedActual(st, ctx, (sec) => sec.tone === 'expense' && !sec.parent);
     const pa = pv.planned ? pv : plannedActual(st, ctx, (sec) => !sec.parent);
@@ -1358,7 +1392,7 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
 
   // rótulo implícito: "incentivo de 100 mil reais", "Coordenador 10 mil reais vezes 6 meses"
   if (!label && !assign && !tp && !(xm && refsSection)) {
-    const im = body.match(/^\s*((?:[\p{Extended_Pictographic}\u2600-\u27BF]\uFE0F?\s*)*[\p{L}][\p{L}'’ -]{0,48}?)\s+(?:(?:de|do|da|dos|das|no|na|of|for|por)\s+)?(?=R\$|US\$|€|£|\$|\d)/u);
+    const im = body.match(/^\s*((?:(?:[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}\u2600-\u27BF][\uFE0F\u200D\p{Emoji_Modifier}\p{Extended_Pictographic}]*)\s*)*[\p{L}][\p{L}'’ -]{0,48}?)\s+(?:(?:de|do|da|dos|das|no|na|of|for|por)\s+)?(?=R\$|US\$|€|£|\$|\d)/u);
     if (im) {
       const cand = stripEmoji(im[1]).trim();
       const first = fold(cand.split(/\s+/)[0]);

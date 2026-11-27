@@ -7,6 +7,11 @@ import type { InboxItem, Lang, Reminder, Repeat } from './types';
 import { useData } from '../store/data';
 import { scheduleSystem, systemNotify } from './notify';
 import { LOCALES, resolveLang, translate } from '../i18n';
+import { classifyTerm } from '../engine/vocab';
+import { evaluateDocument } from '../engine/evaluate';
+import { defaultContext } from '../engine/value';
+import { insertIntoSections } from './smartInsert';
+import { uid } from './platform';
 
 const DAY = 86400_000;
 
@@ -85,6 +90,11 @@ function textFor(r: Reminder, kind: InboxItem['kind'], lang: Lang, amount: strin
   const date = new Date(r.due).toLocaleDateString(LOCALES[lang], { day: '2-digit', month: 'short' });
   const what = amount ? `${r.title} · ${amount}` : r.title;
   const n = Math.max(1, Math.round((startOfDay(r.due) - startOfDay(at)) / DAY));
+  if (isIncome(r)) {
+    if (kind === 'before') return { title: t('rem.inBefore', { title: r.title }), body: t('rem.inBeforeBody', { what, date, n }) };
+    if (kind === 'overdue') return { title: t('rem.inOverdue', { title: r.title }), body: t('rem.inOverdueBody', { what, date }) };
+    return { title: t('rem.inDue', { title: r.title }), body: t('rem.inDueBody', { what, date }) };
+  }
   if (kind === 'before') return { title: t('rem.notifBefore', { title: r.title }), body: t('rem.notifBeforeBody', { what, date, n }) };
   if (kind === 'overdue') return { title: t('rem.notifOverdue', { title: r.title }), body: t('rem.notifOverdueBody', { what, date }) };
   return { title: t('rem.notifDue', { title: r.title }), body: t('rem.notifDueBody', { what, date }) };
@@ -120,9 +130,64 @@ export async function runReminders(amountOf: (r: Reminder) => string | undefined
   await scheduleSystem(future);
 }
 
-/** Pago/feito: lembretes repetidos passam para o próximo vencimento. */
-export function markPaid(r: Reminder) {
+/** Lembrete a receber? (marcado assim ou com nome de receita: "Salário", "Aluguel recebido"…) */
+export const isIncome = (r: Pick<Reminder, 'kind' | 'title'>) => (r.kind ? r.kind === 'income' : classifyTerm(r.title) === 'income');
+
+/**
+ * Pago/recebido entra no bloco da nota ligada, na seção certa (#Despesas ou #Receitas), e passa
+ * a contar nos totais e fórmulas: "Luz: R$ 150,00 // ✓ pago 10/12/2026". Se a linha veio da
+ * própria nota ("Luz: R$ 150 vence 10/12") e não se repete, ela é marcada como paga em vez de duplicar.
+ * Devolve o nome da nota onde entrou (ou undefined).
+ */
+export function postToNote(r: Reminder, amount: string | undefined, at: number): string | undefined {
+  if (!r.noteId || !amount?.trim()) return undefined;
   const st = useData.getState();
+  const note = st.notes.find((n) => n.id === r.noteId && !n.deleted);
+  if (!note) return undefined;
+  const lang = resolveLang(st.settings.lang);
+  const income = isIncome(r);
+  // o mês do lançamento é o do vencimento; a data marcada é a do pagamento (hoje)
+  const d = new Date(at);
+  const date = new Date().toLocaleDateString(LOCALES[lang], { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const mark = `// ✓ ${translate(lang, income ? 'rem.receivedWord' : 'rem.paidWord')} ${date}`;
+  const base = r.title.replace(/[:=()+*/^#\d]/g, ' ').replace(/\s+/g, ' ').trim() || translate(lang, income ? 'rem.received' : 'rem.paid');
+  const calcs = note.blocks.filter((b): b is Extract<typeof b, { type: 'calc' }> => b.type === 'calc');
+  const ctx = defaultContext({ lang, decimal: lang === 'en' ? 'dot' : 'comma' });
+  // bloco: o ligado ao lembrete, senão o que tem a seção do tipo certo, senão o primeiro
+  const tone = income ? 'income' : 'expense';
+  const target =
+    calcs.find((b) => b.id === r.blockId) ??
+    calcs.find((b) => evaluateDocument(b.text, ctx).lines.some((x) => x.kind === 'header' && x.tone === tone)) ??
+    calcs[0];
+  const esc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (target && r.repeat === 'none') {
+    // a linha de origem ("Luz: R$ 150 vence 10/12") vira "Luz: R$ 150 // ✓ pago 10/12/2026"
+    const lines = target.text.split('\n');
+    const i = lines.findIndex((l) => new RegExp(`^\\s*(?:\\S+\\s+)?${esc}\\s*:`, 'iu').test(l) && /\b(vence|vencimento|venc\.|due|vto|vence dia)\b/i.test(l));
+    if (i >= 0) {
+      lines[i] = lines[i].replace(/\s*\b(vence|vencimento|venc\.|due|vto)\b.*$/i, '') + ' ' + mark;
+      st.updateBlock(note.id, target.id, { text: lines.join('\n') });
+      return note.title || '·';
+    }
+  }
+  // repetidos: o mês entra no nome ("Aluguel dezembro"), para cada pagamento ser um lançamento
+  const label = r.repeat === 'none' ? base : `${base} ${d.toLocaleDateString(LOCALES[lang], { month: 'long' })}`;
+  const line = `${label}: ${amount.replace(/^-\s*/, '')} ${mark}`;
+  const header = `#${translate(lang, income ? 'rem.secIncome' : 'rem.secExpense')}`;
+  if (!target) {
+    const b = { id: uid(), type: 'calc' as const, text: `${header}\n${line}` };
+    st.updateNote(note.id, (n) => void n.blocks.push(b));
+    return note.title || '·';
+  }
+  const res = insertIntoSections(target.text, evaluateDocument(target.text, ctx).lines, [{ line: header }, { line, tone }]);
+  st.updateBlock(note.id, target.id, { text: res.text });
+  return note.title || '·';
+}
+
+/** Pago/recebido: lembretes repetidos passam para o próximo vencimento; o valor entra na nota ligada. */
+export function markPaid(r: Reminder, amount?: string): string | undefined {
+  const st = useData.getState();
+  const posted = postToNote(r, amount, r.due);
   const paid = [...(r.paid ?? []), r.due].slice(-36);
   if (r.repeat === 'none') st.patchReminder(r.id, { paid });
   else st.patchReminder(r.id, { paid, due: addRepeat(r.due, r.repeat) });
@@ -131,6 +196,7 @@ export function markPaid(r: Reminder) {
     st.inbox.filter((x) => x.reminderId === r.id && x.id.includes(`:${r.due}:`)).map((x) => x.id),
     { read: true },
   );
+  return posted;
 }
 
 export function snooze(r: Reminder, days: number) {

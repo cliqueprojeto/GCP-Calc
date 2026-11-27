@@ -554,3 +554,47 @@ describe('modelo previsto × realizado', () => {
     }
   });
 });
+
+describe('emojis inteiros no destaque', () => {
+  it('nenhum pedaço corta um emoji (bandeiras, famílias, variações)', () => {
+    const lines = ['🛒 arroz 27,90 + 🍞 8', '🇧🇷 Viagem: R$ 900', '👨‍👩‍👧 Família: R$ 50', '❤️ 10 + 5 ✅', '# 🏷️ Etiquetas', '1️⃣ Primeiro: R$ 3', '👍🏽 ok 2 * 3'];
+    const ctx = defaultContext({ rates, now: 0 });
+    const d = evaluateDocument(lines.join('\n'), ctx);
+    d.lines.forEach((l, i) => {
+      expect(l.segments.map((s) => s.text).join('')).toBe(lines[i]);
+      for (const s of l.segments) expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s.text)).toBe(false);
+      // fronteiras entre pedaços caem sempre entre grafemas
+      const bounds = new Set([...new (Intl as unknown as { Segmenter: new (l: string, o: object) => { segment(s: string): Iterable<{ index: number }> } }).Segmenter('pt', { granularity: 'grapheme' }).segment(lines[i])].map((g) => g.index));
+      let at = 0;
+      for (const s of l.segments) {
+        expect(bounds.has(at) || at === lines[i].length, `${lines[i]} @${at}`).toBe(true);
+        at += s.text.length;
+      }
+    });
+    expect(d.lines[1].label).toBe('Viagem');
+    expect(d.lines[2].label).toBe('Família');
+  });
+});
+
+describe('ditado sem duplicar', () => {
+  it('a IA devolve a nota inteira: só o item novo entra, uma vez', async () => {
+    const { insertIntoSections } = await import('../src/lib/smartInsert');
+    const ctx = defaultContext({ rates, now: 0 });
+    let text = '#Despesas\nArroz: R$ 27,90\nCafé: R$ 18,00\nTotal #Despesas';
+    const ai = ['#Despesas', 'Arroz: R$ 27,90', 'Café: R$ 18', 'Pão: R$ 8,00', 'Total #Despesas'].map((line) => ({ line }));
+    const r1 = insertIntoSections(text, evaluateDocument(text, ctx).lines, ai);
+    expect(r1.text).toBe('#Despesas\nArroz: R$ 27,90\nCafé: R$ 18,00\nPão: R$ 8,00\nTotal #Despesas');
+    expect(r1.skipped).toBe(2);
+    text = r1.text;
+    const r2 = insertIntoSections(text, evaluateDocument(text, ctx).lines, [...ai, { line: '🥛 Leite: R$ 6' }]);
+    expect(r2.text).toBe('#Despesas\nArroz: R$ 27,90\nCafé: R$ 18,00\nPão: R$ 8,00\n🥛 Leite: R$ 6\nTotal #Despesas');
+  });
+});
+
+describe('subtotal por grupo e atalhos de totais', () => {
+  it('subtotal soma só o grupo; total a pagar/receber; lucro', () => {
+    const t = '#Receitas\nSalário: R$ 3.000\nFreela: R$ 500\nSubtotal\n#Despesas\nAluguel: R$ 1.000\nLuz: R$ 100\nSubtotal\nMercado: R$ 500\nSubtotal\nTotal #Despesas\nSubtotal #Despesas\nTotal a pagar\nTotal a receber\nLucro\nPrejuízo';
+    const r = run(t);
+    expect([r[3], r[7], r[9], r[10], r[11], r[12], r[13], r[14], r[15]]).toEqual(['R$ 3.500,00', 'R$ 1.100,00', 'R$ 500,00', 'R$ 1.600,00', 'R$ 1.600,00', 'R$ 1.600,00', 'R$ 3.500,00', 'R$ 1.900,00', 'R$ 1.900,00']);
+  });
+});

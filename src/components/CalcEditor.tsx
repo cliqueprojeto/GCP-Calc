@@ -154,7 +154,15 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
       out.push({ kind: 'snippet', insert: '% ' + t('snip.executed'), detail: t('snip.executedHint') });
       out.push({ kind: 'snippet', insert: '% ' + t('snip.toExecute'), detail: t('snip.toExecuteHint') });
     }
+    const hasInc = secs.some((k) => k.tone === 'income');
+    const hasExp = secs.some((k) => k.tone === 'expense');
+    // subtotal do grupo (desde o título ou o subtotal anterior)
+    out.push({ kind: 'snippet', insert: 'Subtotal', detail: t('snip.subtotalHint') });
+    if (hasExp) out.push({ kind: 'snippet', insert: t('snip.toPay'), tone: 'expense', detail: t('snip.toPayHint') });
+    if (hasInc) out.push({ kind: 'snippet', insert: t('snip.toReceive'), tone: 'income', detail: t('snip.toReceiveHint') });
+    if (hasInc && hasExp) out.push({ kind: 'snippet', insert: t('snip.profit'), detail: t('snip.balanceHint') });
     for (const sc of secs) out.push({ kind: 'snippet', insert: `Total ${sc.insert}`, tone: sc.tone, detail: t('snip.totalHint') });
+    for (const sc of secs) out.push({ kind: 'snippet', insert: `Subtotal ${sc.insert}`, tone: sc.tone, detail: t('snip.totalHint') });
     return out;
   };
   const suggest = (value: string, caret: number) => {

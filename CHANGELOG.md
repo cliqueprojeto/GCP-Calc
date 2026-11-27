@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.10.0 — emojis perfeitos, ditado sem duplicar, lembretes que entram na conta e subtotais
+
+### Emojis no editor
+- Emojis compostos aparecem inteiros: bandeiras (🇧🇷), famílias (👨‍👩‍👧), tons de pele (👍🏽), teclas (1️⃣) e símbolos com variação (❤️, 🏷️). Antes, fora dos rótulos, eles podiam aparecer “quebrados” (quadradinhos ou pedaços), principalmente no Linux e no Android.
+- Linhas com bandeira no começo (`🇧🇷 Viagem: R$ 900`) também viram rótulo e variável.
+
+### Ditado e organização sem itens repetidos
+- O que já está no bloco não entra de novo: ao transcrever e inserir, só os itens novos são acrescentados, na seção certa, abaixo do último lançamento. O aviso mostra quantos já estavam no bloco.
+- A IA recebe a instrução de devolver somente os itens novos do ditado.
+- O **Organizar** não repete nada e, sem título, coloca compras e contas em despesas (só salário, vendas, cachê recebido etc. vão para receitas).
+
+### Lembretes: pago, recebido e direto no bloco
+- Cada lembrete é **Despesa (a pagar)** ou **Receita (a receber)** — dá para programar recebimentos (salário, cachê, cliente, aluguel recebido).
+- Ao marcar **Pago** ou **Recebido**, o valor entra no bloco da nota ligada, na seção de despesas ou de receitas, e passa a contar nos totais, no saldo e nas fórmulas: `Internet novembro: R$ 120,00 // ✓ pago 27/11/2026`.
+- Se o lembrete nasceu de uma linha da nota (`Luz: R$ 150 vence 10/12`), essa linha é marcada como paga em vez de ser duplicada.
+- Painel com **A receber no mês** separado do que há **a pagar**; avisos próprios para recebimentos (“A receber hoje”, “Recebimento atrasado”).
+
+### Subtotal e atalhos de totais
+- **Subtotal** soma só o grupo — do título ou do subtotal anterior até ali —, para quebrar uma seção em partes; `Total #Seção` continua somando a seção inteira.
+- Novos atalhos: `Total a pagar`, `Total a receber`, `Total pago`, `Total recebido`, `Subtotal #Receitas`, `Subtotal #Despesas`, `Lucro`, `Prejuízo`, `Superávit`, `Déficit`, `Saldo do mês`, `Resultado final` (também em inglês e espanhol).
+- Todos aparecem no autocompletar e no menu “/”.
+
 ## 1.9.0 — previsto × realizado, importar planilhas e PDFs, totais mais inteligentes
 
 ### Previsto × Realizado

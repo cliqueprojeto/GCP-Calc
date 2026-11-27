@@ -4994,3 +4994,17 @@ html.kb-open .voice-fab {
   color: var(--muted);
   margin: 0;
 }
+/* lembretes a receber */
+.kpi.good b,
+.kpi.good small,
+.rem-amt.tone-income,
+.btn.tone-income,
+.seg .on.tone-income {
+  color: var(--ok);
+}
+.seg .on.tone-expense {
+  color: var(--danger);
+}
+.btn.tone-income {
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+}

@@ -28,7 +28,7 @@ import { evaluateLine, newDocState } from '../engine/evaluate';
 import { fold } from '../engine/units';
 import { formatValue, add, type EvalContext, type FormatOptions, type Value } from '../engine/value';
 import { evaluateNote } from '../lib/noteEval';
-import { markPaid, occurrences, snooze, startOfDay, statusOf, type ReminderStatus } from '../lib/reminders';
+import { isIncome, markPaid, occurrences, snooze, startOfDay, statusOf, type ReminderStatus } from '../lib/reminders';
 import { uid } from '../lib/platform';
 import { NoteIcon } from '../lib/icons';
 import { Field, Menu, MenuItem, Modal, Select } from './ui';
@@ -87,6 +87,7 @@ export function ReminderForm({ initial, onClose }: { initial: Partial<Reminder> 
     repeat: (initial?.repeat ?? 'monthly') as Repeat,
     alertDays: initial?.alertDays ?? 2,
     noteId: initial?.noteId ?? '',
+    kind: (initial?.kind ?? (initial?.title && isIncome({ title: initial.title }) ? 'income' : 'expense')) as 'income' | 'expense',
   }));
   if (!initial) return null;
   const preview = amountText({ amount: v.amount }, ctx, fmt);
@@ -102,6 +103,8 @@ export function ReminderForm({ initial, onClose }: { initial: Partial<Reminder> 
       repeat: v.repeat,
       alertDays: v.alertDays,
       noteId: v.noteId || undefined,
+      blockId: v.noteId === initial.noteId ? initial.blockId : undefined,
+      kind: v.kind,
       paid: initial.paid,
       archived: initial.archived,
     });
@@ -113,6 +116,16 @@ export function ReminderForm({ initial, onClose }: { initial: Partial<Reminder> 
       <div className="rem-form">
         <Field label={t('rem.title')}>
           <input className="input" autoFocus value={v.title} placeholder={t('rem.titlePh')} onChange={(e) => setV({ ...v, title: e.target.value })} />
+        </Field>
+        <Field label={t('rem.kind')}>
+          <div className="seg">
+            <button className={v.kind === 'expense' ? 'on tone-expense' : ''} onClick={() => setV({ ...v, kind: 'expense' })}>
+              {t('rem.kindExpense')}
+            </button>
+            <button className={v.kind === 'income' ? 'on tone-income' : ''} onClick={() => setV({ ...v, kind: 'income' })}>
+              {t('rem.kindIncome')}
+            </button>
+          </div>
         </Field>
         <Field label={t('rem.amount')} hint={preview && v.amount.trim() !== preview ? `= ${preview}` : undefined}>
           <input className="input mono" value={v.amount} placeholder="R$ 150,00" onChange={(e) => setV({ ...v, amount: e.target.value })} />
@@ -137,7 +150,7 @@ export function ReminderForm({ initial, onClose }: { initial: Partial<Reminder> 
             <Select value={v.alertDays} onChange={(alertDays) => setV({ ...v, alertDays })} options={[0, 1, 2, 3, 5, 7, 15].map((n) => ({ value: n, label: n ? t('rem.daysBefore', { n }) : t('rem.onlyOnDay') }))} />
           </Field>
         </div>
-        <Field label={t('rem.note')}>
+        <Field label={t('rem.note')} hint={v.noteId ? t('rem.linkHint') : undefined}>
           <Select
             value={v.noteId}
             onChange={(noteId) => setV({ ...v, noteId })}
@@ -223,6 +236,13 @@ function Calendar({ reminders, month, setMonth, selected, onSelect }: { reminder
   );
 }
 
+/** Pago ou recebido: marca, lança o valor na nota ligada e avisa. */
+export function payReminder(r: Reminder, ctx: EvalContext, fmt: FormatOptions, t: ReturnType<typeof useT>) {
+  const income = isIncome(r);
+  const posted = markPaid(r, amountText(r, ctx, fmt));
+  toast(posted ? `${t(income ? 'rem.receivedToast' : 'rem.paidToast')} · ${t('rem.postedTo', { note: posted })}` : t(income ? 'rem.receivedToast' : 'rem.paidToast'), 'ok');
+}
+
 function sumOf(list: Reminder[], ctx: EvalContext): Value | undefined {
   let acc: Value | undefined;
   for (const r of list) {
@@ -257,8 +277,10 @@ export function RemindersPage() {
   const dayList = day !== undefined ? active.filter((r) => occurrences(r, day, day + DAY).length) : null;
   const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 1).getTime();
   const monthOpen = active.filter((r) => !r.archived && occurrences(r, month.getTime(), monthEnd).some((o) => !(r.paid?.includes(o) || (r.repeat !== 'none' && o < r.due))));
-  const overdueSum = sumOf(groups.overdue, ctx);
-  const monthSum = sumOf(monthOpen, ctx);
+  const toPay = (l: Reminder[]) => l.filter((r) => !isIncome(r));
+  const overdueSum = sumOf(toPay(groups.overdue), ctx);
+  const monthSum = sumOf(toPay(monthOpen), ctx);
+  const monthIncome = sumOf(monthOpen.filter(isIncome), ctx);
 
   const Row = ({ r }: { r: Reminder }) => {
     const st = statusOf(r);
@@ -282,11 +304,11 @@ export function RemindersPage() {
             )}
           </div>
         </div>
-        {amt && <div className="rem-amt">{amt}</div>}
+        {amt && <div className={`rem-amt ${isIncome(r) ? 'tone-income' : ''}`}>{isIncome(r) ? '+' : ''}{amt}</div>}
         <div className="rem-actions">
           {st !== 'done' && (
-            <button className="btn small" onClick={() => (markPaid(r), toast(t('rem.paidToast'), 'ok'))} title={t('rem.markPaid')}>
-              <Check size={14} /> <span className="hide-sm">{t('rem.paid')}</span>
+            <button className={`btn small ${isIncome(r) ? 'tone-income' : ''}`} onClick={() => payReminder(r, ctx, fmt, t)} title={t(isIncome(r) ? 'rem.markReceived' : 'rem.markPaid')}>
+              <Check size={14} /> <span className="hide-sm">{t(isIncome(r) ? 'rem.received' : 'rem.paid')}</span>
             </button>
           )}
           <Menu
@@ -348,21 +370,28 @@ export function RemindersPage() {
       </div>
 
       <div className="rem-kpis">
-        <div className={`kpi ${groups.overdue.length ? 'bad' : ''}`}>
+        <div className={`kpi ${toPay(groups.overdue).length ? 'bad' : ''}`}>
           <span>{t('rem.st.overdue')}</span>
-          <b>{groups.overdue.length}</b>
+          <b>{toPay(groups.overdue).length}</b>
           <small>{overdueSum ? formatValue(overdueSum, fmt) : '—'}</small>
         </div>
         <div className="kpi">
           <span>{t('rem.kpiWeek')}</span>
-          <b>{groups.today.length + groups.soon.length}</b>
-          <small>{sumOf([...groups.today, ...groups.soon], ctx) ? formatValue(sumOf([...groups.today, ...groups.soon], ctx)!, fmt) : '—'}</small>
+          <b>{toPay([...groups.today, ...groups.soon]).length}</b>
+          <small>{sumOf(toPay([...groups.today, ...groups.soon]), ctx) ? formatValue(sumOf(toPay([...groups.today, ...groups.soon]), ctx)!, fmt) : '—'}</small>
         </div>
         <div className="kpi">
           <span>{t('rem.kpiMonth', { month: month.toLocaleDateString(LOCALES[lang], { month: 'long' }) })}</span>
-          <b>{monthOpen.length}</b>
+          <b>{toPay(monthOpen).length}</b>
           <small>{monthSum ? formatValue(monthSum, fmt) : '—'}</small>
         </div>
+        {monthIncome && (
+          <div className="kpi good">
+            <span>{t('rem.toReceive')}</span>
+            <b>{monthOpen.filter(isIncome).length}</b>
+            <small className="tone-income">+{formatValue(monthIncome, fmt)}</small>
+          </div>
+        )}
       </div>
 
       <div className="rem-layout">
@@ -460,6 +489,8 @@ export function InboxPanel({ onClose }: { onClose(): void }) {
   const lang = useLang();
   const { inbox, reminders, patchInbox } = useData();
   const { go } = useUi();
+  const ctx = useEvalContext();
+  const fmt = formatOptions(ctx);
   const [tab, setTab] = useState<'unread' | 'all' | 'archived'>('unread');
   const list = inbox
     .filter((x) => !x.deleted && (tab === 'archived' ? x.archived : !x.archived && (tab === 'all' || !x.read)))
@@ -501,7 +532,7 @@ export function InboxPanel({ onClose }: { onClose(): void }) {
               </button>
               <div className="inbox-actions">
                 {canPay && (
-                  <button className="icon-btn" title={t('rem.markPaid')} onClick={() => (markPaid(r!), toast(t('rem.paidToast'), 'ok'))}>
+                  <button className="icon-btn" title={t(isIncome(r!) ? 'rem.markReceived' : 'rem.markPaid')} onClick={() => payReminder(r!, ctx, fmt, t)}>
                     <Check size={14} />
                   </button>
                 )}

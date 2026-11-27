@@ -179,6 +179,10 @@ export interface Reminder {
   /** avisar N dias antes (além do dia) */
   alertDays: number;
   noteId?: string;
+  /** bloco de cálculo da nota onde entram os pagamentos/recebimentos */
+  blockId?: string;
+  /** a pagar (despesa, padrão) ou a receber (receita) */
+  kind?: 'expense' | 'income';
   /** vencimentos já pagos/concluídos */
   paid?: number[];
   archived?: boolean;

@@ -199,6 +199,7 @@ export function NoteView({ note }: { note: Note }) {
       const res = insertIntoSections(cur, ev.perBlock.get(target.id)?.results ?? [], r.items.length ? r.items : r.lines.map((line) => ({ line })));
       updateBlock(note.id, target.id, { text: res.text });
       placedMsg = res.placed.map((p) => `#${p.name} +${p.n}`).join(' · ');
+      if (res.skipped) placedMsg = (placedMsg ? placedMsg + ' · ' : '') + t('voice.skipped', { n: res.skipped });
     }
     if (voice?.audio && r.transcript) updateBlock(note.id, voice.audio.id, { transcript: r.transcript });
     if (r.audio) {
@@ -601,7 +602,7 @@ export function NoteView({ note }: { note: Note }) {
                     if (!r?.due || !r.label) return;
                     const ex = reminders.find((x) => !x.deleted && x.noteId === note.id && fold(x.title) === fold(r.label!));
                     if (ex) return ui.go({ kind: 'reminders' });
-                    useData.getState().saveReminder({ id: uid(), title: r.label, amount: r.value ? formatValue(r.value, fmt) : undefined, due: r.due.at, repeat: r.due.monthly ? 'monthly' : 'none', alertDays: 2, noteId: note.id });
+                    useData.getState().saveReminder({ id: uid(), title: r.label, amount: r.value ? formatValue(r.value, fmt) : undefined, due: r.due.at, repeat: r.due.monthly ? 'monthly' : 'none', alertDays: 2, noteId: note.id, blockId: b.id, kind: r.tone === 'income' ? 'income' : 'expense' });
                     toast(t('rem.createdFromLine', { title: r.label }), 'ok');
                   }}
                 />

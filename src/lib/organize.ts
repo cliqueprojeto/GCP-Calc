@@ -49,7 +49,8 @@ export function organizeText(text: string, results: LineResult[], fmt: FormatOpt
     const literal = r.fill !== undefined;
     const v = r.value!;
     const kind = classifyTerm(r.label);
-    const isExpense = tone === 'expense' || v.n < 0 || (tone !== 'income' && kind !== 'income' && (kind === 'expense' || EXPENSE_WORDS.test(r.label)));
+    // sem título e sem palavra de receita (salário, venda, cachê recebido…), é gasto: compras, contas
+    const isExpense = tone === 'expense' || v.n < 0 || (tone !== 'income' && kind !== 'income');
     const body = literal ? formatValue({ ...v, n: Math.abs(v.n) }, fmt) : line.slice(line.indexOf(':') + 1).trim().replace(/^-\s*/, '');
     (isExpense ? expense : income).push({ line, label: r.label, body });
   });
