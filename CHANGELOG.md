@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.1 — Android com assinatura permanente
+
+- **Android**: o app passa a ser assinado com a chave permanente do GCP-Calc. Instale esta versão uma última vez (desinstalando a anterior, depois de fazer backup das notas) — **a partir daqui, as próximas versões instalam por cima, sem perder nada**.
+- Demais plataformas: mesma versão 1.7.0, recompilada.
+
 ## 1.7.0 — senha com digital, ditado nas seções certas e correções no Android
 
 ### Senha e segurança
