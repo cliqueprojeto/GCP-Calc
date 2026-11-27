@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { ArrowDownRight, ArrowUpRight, Minus, Plus, X } from 'lucide-react';
 import type { Block, Note } from '../lib/types';
 import type { Evaluated } from '../lib/noteEval';
-import { compareRows, deltaTone, noteFigures, type CompareRow } from '../lib/compare';
+import { compareRows, deltaTone, noteFigures, plannedRows, planTone, type CompareRow } from '../lib/compare';
 import { formatValue, type EvalContext, type FormatOptions } from '../engine/value';
 import { NoteIcon } from '../lib/icons';
 import { useData } from '../store/data';
@@ -22,15 +22,20 @@ export function useCompare(note: Note, block: CompareB, ctx: EvalContext, fmt: F
       .map((id) => (id === 'self' ? note : notes.find((n) => n.id === id && !n.deleted)))
       .filter((n): n is Note => !!n);
     const figs = cols.map((n) => noteFigures(n, ctx, fmt, n.id === note.id ? ev : undefined));
-    return { cols, rows: compareRows(figs, ctx, block.only ?? 'all') };
-  }, [notes, note, block.sources, block.only, ctx, fmt, ev]);
+    const pvrNote = cols[cols.length - 1] ?? note;
+    const plan = block.mode === 'pvr' ? plannedRows(pvrNote, ctx, fmt, pvrNote.id === note.id ? ev : undefined) : [];
+    return { cols, rows: block.mode === 'pvr' ? [] : compareRows(figs, ctx, block.only ?? 'all'), plan, pvrNote };
+  }, [notes, note, block.sources, block.only, block.mode, ctx, fmt, ev]);
 }
 
 export function CompareBlock({ note, block, ctx, fmt, ev, onChange }: { note: Note; block: CompareB; ctx: EvalContext; fmt: FormatOptions; ev: Evaluated; onChange(p: Partial<CompareB>): void }) {
   const t = useT();
   const lang = useLang();
   const notes = useData((s) => s.notes);
-  const { cols, rows } = useCompare(note, block, ctx, fmt, ev);
+  const { cols, rows, plan, pvrNote } = useCompare(note, block, ctx, fmt, ev);
+  const pvr = block.mode === 'pvr';
+  const planMax = Math.max(1, ...plan.map((r) => Math.max(Math.abs(r.planned?.n ?? 0), Math.abs(r.actual.n))));
+  const pctTxt = (n?: number) => (n === undefined ? '—' : `${(n * 100).toLocaleString(LOCALES[lang], { maximumFractionDigits: 1 })}%`);
   const candidates = notes.filter((n) => !n.deleted && n.id !== note.id && !block.sources.includes(n.id)).sort((a, b) => b.updated - a.updated);
   const colName = (n: Note) => (n.id === note.id ? t('cmp.thisNote') : n.title || t('note.untitled'));
   const max = Math.max(1, ...rows.flatMap((r) => r.values.map((v) => Math.abs(v?.n ?? 0))));
@@ -42,13 +47,21 @@ export function CompareBlock({ note, block, ctx, fmt, ev, onChange }: { note: No
       <div className="cmp-head">
         <input className="cmp-title" value={block.title ?? ''} placeholder={t('cmp.title')} onChange={(e) => onChange({ title: e.target.value })} />
         <div className="seg small">
+          <button className={!pvr ? 'on' : ''} onClick={() => onChange({ mode: 'notes' })}>
+            {t('cmp.modeNotes')}
+          </button>
+          <button className={pvr ? 'on' : ''} onClick={() => onChange({ mode: 'pvr' })}>
+            {t('cmp.modePvr')}
+          </button>
+        </div>
+        {!pvr && <div className="seg small">
           <button className={(block.only ?? 'all') === 'all' ? 'on' : ''} onClick={() => onChange({ only: 'all' })}>
             {t('cmp.all')}
           </button>
           <button className={block.only === 'sections' ? 'on' : ''} onClick={() => onChange({ only: 'sections' })}>
             {t('cmp.totals')}
           </button>
-        </div>
+        </div>}
       </div>
       <div className="cmp-sources">
         {block.sources.map((id, i) => {
@@ -88,7 +101,53 @@ export function CompareBlock({ note, block, ctx, fmt, ev, onChange }: { note: No
           )}
         </Menu>
       </div>
-      {cols.length < 2 || !rows.length ? (
+      {pvr ? (
+        !plan.length ? (
+          <p className="cmp-empty">{t('cmp.pvrHint')}</p>
+        ) : (
+          <div className="cmp-table-wrap">
+            <table className="cmp-table pvr">
+              <thead>
+                <tr>
+                  <th>{pvrNote.id === note.id ? t('cmp.thisNote') : pvrNote.title || t('note.untitled')}</th>
+                  <th>{t('cmp.planned')}</th>
+                  <th>{t('cmp.actual')}</th>
+                  <th>{t('cmp.balance')}</th>
+                  <th>{t('cmp.executed')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plan.map((r, i) => {
+                  const pt = planTone(r);
+                  return (
+                    <tr key={r.kind + r.key + i} className={`k-${r.kind} ${r.tone ? 'tone-' + r.tone : ''}`}>
+                      <td className="cmp-label" style={{ paddingLeft: 8 + r.depth * 14 }}>
+                        {r.kind === 'section' ? '#' : ''}
+                        {r.kind === 'summary' && r.key === 'resultado' ? t('cmp.result') : r.label}
+                        <div className="cmp-bars">
+                          {r.planned && <span style={{ width: `${(Math.abs(r.planned.n) / planMax) * 100}%`, background: '#94a3b8' }} />}
+                          <span style={{ width: `${(Math.abs(r.actual.n) / planMax) * 100}%`, background: pt === 'expense' ? 'var(--expense, #dc2626)' : 'var(--accent)' }} />
+                        </div>
+                      </td>
+                      <td className="cmp-num">{r.planned ? formatValue(r.planned, fmt) : '—'}</td>
+                      <td className="cmp-num">{formatValue(r.actual, fmt)}</td>
+                      <td className={`cmp-num ${r.saldo && r.saldo.n < 0 && r.tone !== 'income' ? 'tone-expense' : ''}`}>{r.saldo ? formatValue(r.saldo, fmt) : '—'}</td>
+                      <td className={`cmp-num cmp-delta ${pt ? 'tone-' + pt : ''}`}>
+                        {pctTxt(r.pct)}
+                        {r.pct !== undefined && (
+                          <div className="pvr-meter">
+                            <span style={{ width: `${Math.min(100, r.pct * 100)}%` }} />
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : cols.length < 2 || !rows.length ? (
         <p className="cmp-empty">{t('cmp.hint')}</p>
       ) : (
         <div className="cmp-table-wrap">

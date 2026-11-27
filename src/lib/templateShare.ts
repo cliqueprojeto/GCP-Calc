@@ -7,7 +7,7 @@ import type { Block, Note, UserTemplate } from './types';
 import { uid } from './platform';
 
 export const SHARE_PREFIX = 'GCPCALC1:';
-const KINDS = new Set(['calc', 'heading', 'image', 'chart', 'divider', 'callout', 'sticker', 'progress', 'ticker']);
+const KINDS = new Set(['calc', 'heading', 'image', 'chart', 'divider', 'callout', 'sticker', 'progress', 'ticker', 'compare']);
 
 export interface SharedTemplate {
   kind: 'gcp-calc-template';

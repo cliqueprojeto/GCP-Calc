@@ -33,9 +33,11 @@ import {
   ChartColumnBig,
   Mic,
   CodeXml,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { SaveTemplateModal } from './TemplateDialogs';
 import { OrganizeModal } from './OrganizeModal';
+import { ImportModal } from './ImportModal';
 import { CompareBlock } from './CompareBlock';
 import { CodeBlock } from './CodeBlock';
 import { AttachChooser, ReceiptViewer, ReceiptsStrip, attachFlow } from './Receipts';
@@ -169,6 +171,7 @@ export function NoteView({ note }: { note: Note }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.voiceRequest]);
   const [organizing, setOrganizing] = useState<string | null>(null);
+  const [importing, setImporting] = useState<{ after?: string } | null>(null);
   const [voice, setVoice] = useState<{ target?: string; audio?: Extract<Block, { type: 'audio' }>; blob?: Blob } | null>(null);
   /** bloco de cálculo mais próximo (o anterior; se não houver, o primeiro) */
   const nearestCalc = (id?: string) => {
@@ -336,6 +339,15 @@ export function NoteView({ note }: { note: Note }) {
               {it.label}
             </MenuItem>
           ))}
+          <MenuItem
+            icon={<FileSpreadsheet size={15} />}
+            onClick={() => {
+              setImporting({ after });
+              close();
+            }}
+          >
+            {t('imp.menu')}
+          </MenuItem>
           <MenuItem
             icon={<ListOrdered size={15} />}
             onClick={() => {
@@ -710,6 +722,26 @@ export function NoteView({ note }: { note: Note }) {
         <InsertMenu big />
       </div>
 
+      {importing && (
+        <ImportModal
+          ctx={ctx}
+          fmt={fmt}
+          baseCurrency={settings.baseCurrency}
+          onClose={() => setImporting(null)}
+          onInsert={(text, title, asNote) => {
+            if (asNote) {
+              const calc: Block = { id: uid(), type: 'calc', text };
+              const nid = useData.getState().createNote({ title, icon: 'FileSpreadsheet', color: '#16a34a', blocks: [calc] });
+              ui.go({ kind: 'note', id: nid });
+            } else {
+              const b = newBlock('calc', settings.baseCurrency, settings.favoriteCurrencies);
+              if (b.type === 'calc') b.text = text;
+              insertAfter(importing.after, b);
+            }
+            toast(t('imp.done'), 'ok');
+          }}
+        />
+      )}
       {organizing && (() => {
         const ob = note.blocks.find((x) => x.id === organizing);
         if (!ob || ob.type !== 'calc') return null;

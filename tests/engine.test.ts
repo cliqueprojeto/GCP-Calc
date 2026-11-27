@@ -467,3 +467,90 @@ describe('fórmulas faladas', () => {
     expect(r.slice(5)).toEqual(['R$ 1.500,00', 'R$ 750,00', '50%', 'R$ 300,00']);
   });
 });
+
+describe('totais e saldo em vários formatos', () => {
+  const base = ['#Receitas', 'incentivo de 100 mil reais', 'doação de 10 mil reais', '', '#Despesas', 'Coordenador de 10 mil reais vezes 6 meses', 'Produtor de 3 mil reais em 4 meses', ''];
+  it('todas as formas de receitas menos despesas', () => {
+    const forms = ['#Total (#Receitas - #Despesas)', '#Total #Receitas - #Despesas', '#Receitas - # Despesas', '#Receitas-#Despesas', '#TOTAL', 'Saldo', 'Total: #Receitas - #Despesas', 'Total #Receitas - Total #Despesas', 'receitas - despesas'];
+    const r = run([...base, ...forms].join('\n'));
+    expect(r[5]).toBe('R$ 60.000,00');
+    expect(r[6]).toBe('R$ 12.000,00');
+    for (let i = 0; i < forms.length; i++) expect([forms[i], r[base.length + i]]).toEqual([forms[i], 'R$ 38.000,00']);
+  });
+  it('% executado e % a executar', () => {
+    const r = run([...base, '% Executado', '% A executar'].join('\n'));
+    expect(r[base.length]).toBe('65,45%');
+    expect(r[base.length + 1]).toBe('34,55%');
+  });
+  it('rótulos implícitos e lançamentos com #, contas à parte não mexem na seção', () => {
+    const r = run([...base, 'Incentivo - Coordenador', '#Incentivo - #Coordenador', 'produtor * 2', 'Subtotal #Despesas', 'Total #Receitas'].join('\n'));
+    expect(r.slice(base.length)).toEqual(['R$ 40.000,00', 'R$ 40.000,00', 'R$ 24.000,00', 'R$ 72.000,00', 'R$ 110.000,00']);
+  });
+});
+
+describe('ditado com multiplicação', () => {
+  it('"em 10 meses", "por 3 vezes" viram multiplicação', async () => {
+    const { dictationItems } = await import('../src/lib/dictation');
+    const items = dictationItems('Paguei um Produtor o valor de 10 mil reais em 10 meses. Recebi um incentivo de 100 mil reais. Coordenador 2 mil reais por 6 meses', 'pt', { decimal: 'comma', symbol: 'R$' });
+    expect(items.map((x) => x.line)).toEqual(['Produtor: R$ 10.000 * 10 meses', 'Incentivo: R$ 100.000', 'Coordenador: R$ 2.000 * 6 meses']);
+    expect(items.map((x) => x.tone)).toEqual(['expense', 'income', 'expense']);
+    expect(run(items.map((x) => x.line).join('\n'))).toEqual(['R$ 100.000,00', 'R$ 100.000,00', 'R$ 12.000,00']);
+  });
+});
+
+describe('previsto × realizado', () => {
+  const doc = [
+    '# Receitas',
+    'Patrocínio: R$ 50.000 | R$ 50.000',
+    'Bilheteria: previsto R$ 10.000 realizado R$ 6.000',
+    '',
+    '# Despesas',
+    '## Equipe',
+    'Coordenação: R$ 20.000 | R$ 20.000',
+    'Produção: R$ 12.000 | R$ 13.500',
+    '## Divulgação',
+    'Impressos: R$ 3.000 | R$ 1.500',
+    '',
+    'Previsto #Equipe',
+    'Realizado #Equipe',
+    'Saldo a executar #Equipe',
+    '% Executado #Equipe',
+    'Previsto despesas',
+    'Realizado despesas',
+    '% Executado',
+    '% A executar',
+    'Saldo',
+  ].join('\n');
+  it('linhas mostram o realizado e guardam o previsto', () => {
+    const ctx = defaultContext({ rates, now: 0 });
+    const d = evaluateDocument(doc, ctx);
+    expect(d.lines[1].planned?.n).toBe(50000);
+    expect(d.lines[2].planned?.n).toBe(10000);
+    expect(d.lines[2].value?.n).toBe(6000);
+    expect(d.lines[7].planned?.n).toBe(12000);
+    expect(run(doc + '\nTotal #Despesas\nTotal #Equipe').slice(-2)).toEqual(['R$ 35.000,00', 'R$ 33.500,00']);
+  });
+  it('agregados por seção e por tipo', () => {
+    const r = run(doc);
+    expect(r.slice(11)).toEqual(['R$ 32.000,00', 'R$ 33.500,00', '-R$ 1.500,00', '104,69%', 'R$ 35.000,00', 'R$ 35.000,00', '100%', '0%', 'R$ 21.000,00']);
+  });
+});
+
+describe('modelo previsto × realizado', () => {
+  it('calcula sem erros nas três línguas', async () => {
+    const { TEMPLATES } = await import('../src/notes/templates');
+    const tpl = TEMPLATES.find((x) => x.id === 'pvr')!;
+    for (const lang of ['pt', 'en', 'es'] as const) {
+      const o = lang === 'pt' ? {} : { lang, decimal: lang === 'en' ? ('dot' as const) : ('comma' as const) };
+      const r = run(tpl.text[lang], o);
+      expect(r.filter((x) => x.startsWith('!'))).toEqual([]);
+      expect(r.slice(-6)).toEqual(
+        lang === 'en'
+          ? ['$195,600.00', '$180,200.00', '$15,400.00', '92.13%', '7.87%', '$44,640.00']
+          : lang === 'es'
+            ? ['€ 195.600,00', '€ 180.200,00', '€ 15.400,00', '92,13%', '7,87%', '€ 44.640,00']
+            : ['R$ 195.600,00', 'R$ 180.200,00', 'R$ 15.400,00', '92,13%', '7,87%', 'R$ 44.640,00'],
+      );
+    }
+  });
+});

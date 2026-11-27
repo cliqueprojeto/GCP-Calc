@@ -225,6 +225,12 @@ export interface Section {
   name: string;
   values: Value[];
   tone?: Tone;
+  /** previsto/meta dos lançamentos "previsto | realizado" */
+  planned?: Value[];
+  /** "## Equipe" dentro de "# Despesas": chave da seção-mãe (os valores também somam nela) */
+  parent?: string;
+  /** tipo herdado da seção-mãe */
+  inherit?: Tone;
 }
 
 export type Tone = 'income' | 'expense';
@@ -272,9 +278,19 @@ function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; se
     const r = raws[i];
     switch (r.t) {
       case 'ws':
-      case 'other':
         seg(r.s, 'text');
         continue;
+      case 'other': {
+        // "# Despesas" (com espaço) dentro de uma conta também é a seção
+        if (r.s === '#' && raws[i + 1]?.t === 'ws' && raws[i + 2]?.t === 'word' && scope.sections?.has(fold(raws[i + 2].s))) {
+          toks.push({ k: 'section', name: fold(raws[i + 2].s) });
+          seg(r.s + raws[i + 1].s + raws[i + 2].s, 'section');
+          i += 2;
+          continue;
+        }
+        seg(r.s, 'text');
+        continue;
+      }
       case 'cmt':
         seg(r.s, 'cmt');
         continue;
@@ -293,6 +309,12 @@ function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; se
         if (sec) {
           toks.push({ k: 'section', name: fold(r.s.slice(1)) });
           seg(r.s, 'section');
+          continue;
+        }
+        // "#Incentivo": um lançamento (rótulo) da nota
+        if (!name && scope.vars.has(fold(r.s.slice(1)))) {
+          toks.push({ k: 'var', name: fold(r.s.slice(1)) });
+          seg(r.s, 'var');
           continue;
         }
         const code = name ?? findCurrency(r.s.slice(1));
@@ -449,6 +471,11 @@ function tidy(toks: Tok[]): Tok[] {
       const prev = out[out.length - 1];
       const next = cur[i + 1];
       if (t.k === 'conv') {
+        // "10 mil reais em 10 meses", "R$ 500 por 3 vezes": multiplica
+        if (prev && ENDS_VALUE.has(prev.k) && next?.k === 'num') {
+          out.push({ k: 'op', op: '*' });
+          continue;
+        }
         if (!prev || !ENDS_VALUE.has(prev.k) || !next || !STARTS_TARGET.has(next.k)) continue;
       }
       if (t.k === 'of') {
@@ -965,6 +992,12 @@ export interface LineResult {
   assigned?: string;
   /** a linha é um total/média (não entra no total seguinte) */
   aggregate?: boolean;
+  /** conta à parte com outros lançamentos/seções (rascunho, prova): não entra na seção */
+  derived?: boolean;
+  /** previsto × realizado: o valor da linha é o realizado; aqui o previsto (meta) */
+  planned?: Value;
+  /** tipo da seção em que a linha está (para colorir o % executado) */
+  sectionTone?: Tone;
   /** título de seção (#Receitas): nome exibido */
   section?: string;
   /** receita (verde) ou despesa (vermelho) */
@@ -999,8 +1032,12 @@ export interface DocState {
   group: Value[];
   prev?: Value;
   sections: Map<string, Section>;
+  /** títulos abertos por nível ("#", "##"…) para montar a hierarquia */
+  heads?: { level: number; key: string }[];
   /** seção atual (chave) */
   section?: string;
+  /** a linha anterior estava vazia */
+  lastEmpty?: boolean;
 }
 
 export function newDocState(): DocState {
@@ -1008,7 +1045,7 @@ export function newDocState(): DocState {
 }
 
 /** "#Receitas", "# Despesas do mês", "## Total:" → nome da seção */
-const SECTION_RE = /^(?:#+(?:\s+|(?=[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF]))((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}_][\p{L}\p{N}_ ]*?(?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
+const SECTION_RE = /^(?:#+(?:\s+|(?=[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF]))((?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*[\p{L}_](?:[\p{L}\p{N}_ ]|-(?=\p{L}))*?(?:[\p{Extended_Pictographic}←-⯿☀-➿][️‍\p{Emoji_Modifier}\p{Extended_Pictographic}]*\s*)*)|#([\p{L}_][\p{L}\p{N}_]*))\s*:?\s*$/u;
 /** "Total #Receitas: R$ 6.000" ou "#Receitas - #Despesas = 5.700": conta à esquerda, valor esperado à direita */
 const EXPECT_RE = /^(\s*)([^=:]*#[\p{L}_][^=:]*?)(\s*[=:]\s*)(.*)$/u;
 /** "Sobra %", "Sobra % = xx %": percentual sobre as receitas */
@@ -1047,6 +1084,105 @@ export function parseDue(s: string, ctx: Pick<EvalContext, 'dateOrder' | 'now'>)
   return { at: new Date(y, m - 1, d).getTime(), monthly: false };
 }
 
+/** Soma de receitas e de despesas (todas as seções de cada tipo). */
+function incomeExpense(st: DocState, ctx: EvalContext): { inc?: Value; exp?: Value; all?: Value } {
+  let inc: Value | undefined;
+  let exp: Value | undefined;
+  let all: Value | undefined;
+  const plus = (a: Value | undefined, b: Value) => (a ? add(a, b, 1, ctx) : b);
+  for (const sec of st.sections.values()) {
+    // subseções já estão somadas na seção-mãe
+    if (!sec.values.length || (sec.parent && st.sections.has(sec.parent))) continue;
+    try {
+      const sum = aggregateValues(sectionValues(sec), 'sum', ctx);
+      const abs = { ...sum, n: Math.abs(sum.n) };
+      all = plus(all, abs);
+      if (sec.tone === 'income') inc = plus(inc, abs);
+      else if (sec.tone === 'expense') exp = plus(exp, abs);
+    } catch {
+      /* moedas sem cotação */
+    }
+  }
+  return { inc, exp, all };
+}
+
+const BAL_RE = /^#?\s*(saldo|saldo final|total geral|resultado|balan[cç]o|balance|net|total)\s*:?\s*$/i;
+const EXEC_RE = /^(%\s*(?:executad[oa]|exec\.?|executed|ejecutad[oa])|percentual\s+executad[oa]|executad[oa]\s*%|percent\s+executed)\s*:?\s*$/i;
+const TODO_RE = /^(%\s*(?:a\s+executar|por\s+ejecutar|remaining|restante|to\s+execute)|percentual\s+a\s+executar|a\s+executar\s*%)\s*:?\s*$/i;
+
+/** previsto e realizado somados (de uma seção, de um tipo ou de todas as seções com previsto) */
+function plannedActual(st: DocState, ctx: EvalContext, pick: (s: Section, key: string) => boolean): { planned?: Value; actual?: Value } {
+  let planned: Value | undefined;
+  let actual: Value | undefined;
+  for (const [key, sec] of st.sections) {
+    if (!pick(sec, key) || !sec.planned?.length) continue;
+    try {
+      const p = aggregateValues(sec.planned.map((v) => ({ ...v, n: Math.abs(v.n) })), 'sum', ctx);
+      const a = aggregateValues(sectionValues(sec), 'sum', ctx);
+      planned = planned ? add(planned, p, 1, ctx) : p;
+      actual = actual ? add(actual, a, 1, ctx) : a;
+    } catch {
+      /* moedas sem cotação */
+    }
+  }
+  return { planned, actual };
+}
+
+const PVR_QUICK = /^(previsto|meta|or[cç]ado|planned|budget|presupuestado|realizado|executado|actual|spent|ejecutado|saldo a executar|a executar|remaining|por ejecutar|%\s*executad[oa]|%\s*a executar)\s+(?:d[aeo]s?\s+|of\s+|de\s+(?:l[ao]s\s+)?)?(#?[\p{L}_][\p{L}\p{N}_ ]*)\s*:?\s*$/iu;
+
+/** Linhas prontas: "Saldo", "#Total", "% Executado", "% A executar". */
+function quickLine(t: string, st: DocState, ctx: EvalContext, afterEmpty: boolean): Omit<LineResult, 'segments'> | null {
+  // "Previsto #Equipe", "Realizado das despesas", "Saldo a executar #Equipe", "% Executado despesas"
+  const pq = PVR_QUICK.exec(t);
+  if (pq) {
+    const what = fold(pq[2].replace(/^#/, '').trim());
+    const kind = classifyTerm(what);
+    const { planned, actual } = plannedActual(st, ctx, (sec, key) => key === what || (!st.sections.has(what) && !!kind && sec.tone === kind && !sec.parent));
+    if (planned && actual) {
+      const w = fold(pq[1]);
+      const value: Value = /^(previsto|meta|orcado|planned|budget|presupuestado)$/.test(w)
+        ? planned
+        : /^(realizado|executado|actual|spent|ejecutado)$/.test(w)
+          ? actual
+          : w.startsWith('%') && /a executar/.test(w)
+            ? { n: planned.n ? 1 - actual.n / planned.n : 0, pct: true }
+            : w.startsWith('%')
+              ? { n: planned.n ? actual.n / planned.n : 0, pct: true }
+              : add(planned, actual, -1, ctx);
+      return { kind: 'value', value, label: t.replace(/:$/, ''), aggregate: true };
+    }
+  }
+  const isExec = EXEC_RE.test(t);
+  const isTodo = TODO_RE.test(t);
+  const bal = BAL_RE.exec(t);
+  if (!isExec && !isTodo && !bal) return null;
+  const { inc, exp, all } = incomeExpense(st, ctx);
+  if (isExec || isTodo) {
+    const pv = plannedActual(st, ctx, (sec) => sec.tone === 'expense' && !sec.parent);
+    const pa = pv.planned ? pv : plannedActual(st, ctx, (sec) => !sec.parent);
+    if (pa.planned && pa.actual && pa.planned.n) {
+      const done = pa.actual.n / pa.planned.n;
+      return { kind: 'value', value: { n: isExec ? done : 1 - done, pct: true }, label: t.replace(/:$/, ''), aggregate: true };
+    }
+    if (!inc || !exp || !inc.n) return null;
+    const done = div(exp, inc, ctx).n;
+    return { kind: 'value', value: { n: isExec ? done : 1 - done, pct: true }, label: t.replace(/:$/, ''), aggregate: true };
+  }
+  // "total" sozinho logo depois dos lançamentos é o total da seção (não o saldo)
+  const word = bal![1].toLowerCase();
+  if (word === 'total' && !t.startsWith('#') && !afterEmpty) return null;
+  if (inc && exp) {
+    const value = add(inc, exp, -1, ctx);
+    return { kind: 'value', value, label: 'Saldo', aggregate: true, tone: value.n < 0 ? 'expense' : 'income' };
+  }
+  // sem receitas/despesas separadas: total geral de todas as seções
+  if (t.startsWith('#') || word !== 'total' || st.sections.size > 1) {
+    if (!all) return null;
+    return { kind: 'value', value: all, label: 'Total', aggregate: true };
+  }
+  return null;
+}
+
 /** Moeda mais recente da seção atual (ou do bloco). */
 function contextCurrency(st: DocState): string | undefined {
   const pool = [...(st.section ? st.sections.get(st.section)?.values ?? [] : []), ...st.group];
@@ -1069,7 +1205,7 @@ function incomeBase(st: DocState, ctx: EvalContext): Value | undefined {
   for (const sec of st.sections.values()) {
     if (!sec.values.length) continue;
     const sum = aggregateValues(sectionValues(sec), 'sum', ctx);
-    const income = sectionTone(sec.name, sec.values) === 'income';
+    const income = (sectionTone(sec.name, sec.values) ?? sec.tone) === 'income';
     if (sum.n <= 0) continue;
     if (!best || (income && !bestIncome) || (income === bestIncome && sum.n > best.n)) {
       best = sum;
@@ -1088,13 +1224,17 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     if (r.value && r.kind === 'value') {
       // quantidades ("pessoas: 2") não entram na soma de valores
       const qty = !r.value.unit && !!r.label && isQuantityLabel(r.label);
-      if (!r.aggregate && !qty) {
+      if (!r.aggregate && !qty && !r.derived) {
         st.group.push(r.value);
         const sec = st.section ? st.sections.get(st.section) : undefined;
         // lançamentos com ":" ou com "=" contam na seção (percentuais e datas não)
         if (sec && !r.value.pct && !r.value.date) {
-          sec.values.push(r.value);
-          sec.tone = sectionTone(sec.name, sec.values);
+          // a seção e as seções-mãe ("## Equipe" soma também em "# Despesas")
+          for (let s: Section | undefined = sec, guard = 0; s && guard < 8; s = s.parent ? st.sections.get(s.parent) : undefined, guard++) {
+            s.values.push(r.value);
+            if (r.planned) (s.planned ??= []).push(r.planned);
+            s.tone = sectionTone(s.name, s.values) ?? s.inherit;
+          }
         }
       }
       st.prev = r.value;
@@ -1107,7 +1247,14 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     }
     return r;
   };
-  if (!trimmed) return push({ kind: 'empty', segments: line ? [{ text: line, cls: 'text' }] : [] });
+  if (!trimmed) {
+    st.lastEmpty = true;
+    return push({ kind: 'empty', segments: line ? [{ text: line, cls: 'text' }] : [] });
+  }
+  const afterEmpty = st.lastEmpty || st.lines.length === 0;
+  st.lastEmpty = false;
+  const quick = quickLine(trimmed, st, ctx, afterEmpty);
+  if (quick) return push({ ...quick, segments: [{ text: line.match(/^\s*/)![0], cls: 'text' }, { text: trimmed, cls: 'label' }] });
   const smRaw = trimmed.match(SECTION_RE);
   // "#BRL" ou uma tag de moeda sozinha não é título
   const sm = smRaw && (smRaw[1] || !(findCurrency(smRaw[2]) || ctx.tags.some((t) => fold(t.name) === fold(smRaw[2])))) ? [smRaw[0], (smRaw[1] ?? smRaw[2]).trim()] : null;
@@ -1116,7 +1263,15 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
       const name = stripEmoji(sm[1]);
       const key = fold(name);
       // título repetido continua a mesma seção
-      if (!st.sections.has(key)) st.sections.set(key, { name, values: [], tone: sectionTone(name) });
+      const level = trimmed.match(/^#+/)![0].length;
+      const heads = (st.heads ??= []);
+      while (heads.length && heads[heads.length - 1].level >= level) heads.pop();
+      const parentKey = heads.length && heads[heads.length - 1].key !== key ? heads[heads.length - 1].key : undefined;
+      if (!st.sections.has(key)) {
+        const inherit = parentKey ? st.sections.get(parentKey)?.tone : undefined;
+        st.sections.set(key, { name, values: [], tone: sectionTone(name) ?? inherit, parent: parentKey, inherit });
+      }
+      heads.push({ level, key });
       st.section = key;
     } else st.section = undefined;
     const tone = sm ? st.sections.get(fold(stripEmoji(sm[1])))?.tone : undefined;
@@ -1171,13 +1326,23 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
   }
 
   let fill: number | undefined;
-  const xm = line.match(EXPECT_RE);
+  const tp = line.match(/^(\s*)(#\s*(?:total|saldo|subtotal|resultado|balan[cç]o)\b\s*:?\s*)(\S.*)$/i);
+  if (tp) {
+    // "#Total (#Receitas - #Despesas)", "#Total #Receitas - #Despesas"
+    label = tp[2].replace(/[#:]/g, '').trim();
+    label = label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+    pre.push({ text: tp[1], cls: 'text' }, { text: tp[2], cls: 'label' });
+    body = tp[3];
+  }
+  const xm = tp ? null : line.match(EXPECT_RE);
   const refsSection = xm && [...xm[2].matchAll(/#([\p{L}\p{N}_]+)/gu)].some((m) => st.sections.has(fold(m[1])));
   const am = refsSection ? null : line.match(ASSIGN_RE);
   if (xm && refsSection) {
     // a conta está à esquerda; o que vem depois do "=" ou ":" é só o valor esperado
     body = xm[1] + xm[2];
     fill = xm[1].length + xm[2].length + xm[3].length;
+  } else if (tp) {
+    /* já tratado */
   } else if (am && !/^\s*\d/.test(am[2])) {
     assign = fold(stripEmoji(am[2]));
     pre.push({ text: am[1], cls: 'text' }, { text: am[2], cls: 'assign' }, { text: am[3], cls: 'op' });
@@ -1191,6 +1356,16 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     }
   }
 
+  // rótulo implícito: "incentivo de 100 mil reais", "Coordenador 10 mil reais vezes 6 meses"
+  if (!label && !assign && !tp && !(xm && refsSection)) {
+    const im = body.match(/^\s*((?:[\p{Extended_Pictographic}\u2600-\u27BF]\uFE0F?\s*)*[\p{L}][\p{L}'’ -]{0,48}?)\s+(?:(?:de|do|da|dos|das|no|na|of|for|por)\s+)?(?=R\$|US\$|€|£|\$|\d)/u);
+    if (im) {
+      const cand = stripEmoji(im[1]).trim();
+      const first = fold(cand.split(/\s+/)[0]);
+      const known = KW[first] || EXACT[cand.toLowerCase()] || FUNCS.has(first) || findUnit(cand) || findCurrency(cand) || st.vars.has(fold(cand)) || st.sections.has(fold(cand)) || /^(total|subtotal|soma|saldo|sobra|media|média|maior|menor|hoje|amanha|ontem)$/i.test(first);
+      if (!known && cand.length >= 2) label = cand;
+    }
+  }
   // "Luz: R$ 150 vence 10/12", "Aluguel: R$ 1.800 vence dia 5": data de vencimento (vira lembrete)
   const bodyStart = line.length - body.length;
   let due: LineResult['due'];
@@ -1203,6 +1378,25 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
         due = d;
         dueText = dm[0];
         body = body.slice(0, dm.index);
+      }
+    }
+  }
+  // previsto × realizado: "Cachê: R$ 5.000 | R$ 4.200" ou "Cachê: previsto R$ 5.000 realizado R$ 4.200"
+  let planned: Value | undefined;
+  if ((label || assign) && !(xm && refsSection) && !tp) {
+    const pw = body.match(/^(\s*(?:previsto|meta|or[cç]ado|planned|budget|presupuestado)\s*:?\s*)(.*?\S)(\s+(?:realizado|executado|gasto|actual|spent|real|ejecutado)\s*:?\s*)(\S.*)$/iu);
+    const pp = pw ? null : body.match(/^(\s*)([^|]*?\S)(\s*\|\s*)([^|]*\S.*)$/);
+    const parts = pw ?? pp;
+    if (parts) {
+      try {
+        const left = resolve(rawLex(parts[2], ctx), ctx, scope);
+        if (left.toks.length && left.toks.some((t) => ['num', 'var', 'const', 'cur'].includes(t.k))) {
+          planned = new Parser(left.toks, ctx, scope).parse();
+          pre.push({ text: parts[1], cls: pw ? 'kw' : 'text' }, ...left.segs, { text: parts[3], cls: pw ? 'kw' : 'op' });
+          body = parts[4];
+        }
+      } catch {
+        planned = undefined;
       }
     }
   }
@@ -1236,13 +1430,17 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
     if (literal && toks.some((t) => t.k === 'num') && value.unit?.dim === 'money' && fill === undefined) {
       fill = bodyStart + (body.length - body.trimStart().length);
     }
+    if (planned) {
+      if (!planned.unit && value.unit) planned.unit = value.unit;
+      if (value.unit && planned.unit && value.unit !== planned.unit && value.unit.dim !== planned.unit.dim) planned = undefined;
+    }
     if (assign) st.vars.set(assign, value);
     // rótulos também viram variáveis ("Aluguel: 1.500" → "Aluguel * 12")
     else if (label && !findUnit(label) && !KW[fold(label)]) st.vars.set(fold(label), value);
     if (refsSection && !label) label = xm![2].trim();
     const secToks = toks.filter((t): t is { k: 'section'; name: string } => t.k === 'section');
     const tone = secToks.length === 1 && toks.filter((t) => t.k !== 'agg').length === 1 ? st.sections.get(secToks[0].name)?.tone : undefined;
-    return push({ kind: 'value', value, segments, label: label ?? (assign ? stripEmoji(am![2]) : undefined), assigned: assign, tone, due, fillEnd: dueText ? line.length - dueText.length : undefined, aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill });
+    return push({ kind: 'value', value, segments, label: label ?? (assign ? stripEmoji(am![2]) : undefined), assigned: assign, tone, due, fillEnd: dueText ? line.length - dueText.length : undefined, derived: toks.some((t) => t.k === 'section' || t.k === 'line' || (t.k === 'var' && st.vars.get(t.name)?.unit?.dim === 'money')), aggregate: parser.usedAggregate || (!!label && /^(total|subtotal|soma|sum|m[eé]dia|average|promedio|saldo|sobra|resultado)\b/i.test(label)), inferred, fill: planned ? undefined : fill, planned, sectionTone: planned && st.section ? st.sections.get(st.section)?.tone : undefined });
   } catch (e) {
     const code = e instanceof CalcError ? e.code + (e.detail ? `:${e.detail}` : '') : 'syntax';
     return push({ kind: 'error', error: code, segments, label });

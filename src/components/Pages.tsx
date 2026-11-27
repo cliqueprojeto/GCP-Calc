@@ -25,6 +25,7 @@ export function useCreateFromTemplate() {
     const calc: Block = { id: uid(), type: 'calc', text: tpl.text[lang] };
     const blocks: Block[] = [calc];
     if (tpl.chart) blocks.push({ id: uid(), type: 'chart', kind: tpl.chart, source: calc.id, title: tpl.title[lang] });
+    if (tpl.pvr) blocks.push({ id: uid(), type: 'compare', sources: ['self'], mode: 'pvr', title: tpl.title[lang] });
     const nid = createNote({ title: tpl.title[lang], icon: tpl.icon, color: tpl.color, blocks });
     go({ kind: 'note', id: nid });
   };

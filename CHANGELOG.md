@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.9.0 — previsto × realizado, importar planilhas e PDFs, totais mais inteligentes
+
+### Previsto × Realizado
+- Escreva o previsto e o realizado na mesma linha: `Cachê: R$ 5.000 | R$ 4.200` (ou `Cachê: previsto R$ 5.000 realizado R$ 4.200`). A linha mostra o realizado e um selo com o **% executado** — verde ao completar, vermelho quando estoura o previsto. Passe o mouse para ver o previsto e o saldo.
+- Subseções: `## Equipe` dentro de `# Despesas` herda o tipo (despesa) e soma também na seção-mãe, como as rubricas e grupos de uma prestação de contas.
+- Linhas prontas: `Previsto #Despesas`, `Realizado #Despesas`, `Saldo a executar #Equipe`, `% Executado`, `% A executar` e `Saldo`.
+- **BI**: o bloco de relatório ganhou o modo **Previsto × Realizado**, com previsto, realizado, saldo e % executado por seção, subseção e lançamento, barras comparativas e o resultado (receitas − despesas).
+- Novo modelo **Previsto × Realizado** com dados fictícios de exemplo (receitas por fonte e despesas por grupo de rubricas).
+
+### Importar planilhas e documentos
+- No **+** de qualquer nota: **Importar planilha / PDF** — Excel (.xlsx), CSV, TXT, Markdown e PDF.
+- Reconhece etapas e grupos (Pré-produção, Produção, “Grupo 1 – Comunicação”…), o cabeçalho da tabela (despesa, quantidade, unidade, valor unitário, total, meta/realizado), ignora as linhas de total e resumo e junta as linhas quebradas dos PDFs.
+- Gera seções `# Despesas` / `## Etapa`, lançamentos com quantidade × valor (`R$ 2.000 * 10 meses`), previsto | realizado quando houver as duas colunas, totais e saldo.
+- Prévia calculada (e texto editável) antes de **inserir como bloco** ou **criar uma nova nota**.
+
+### Totais e linguagem natural
+- Receitas menos despesas em vários formatos: `#Receitas - #Despesas`, `#Receitas-#Despesas`, `#Receitas - # Despesas`, `#Total (#Receitas - #Despesas)`, `#Total #Receitas - #Despesas`, `#TOTAL` e simplesmente `Saldo`.
+- `% Executado` e `% A executar` prontos, a partir das receitas e despesas.
+- “Paguei um produtor 10 mil reais em 10 meses” vira `Produtor: R$ 10.000 * 10 meses` = R$ 100.000,00 (também “por 3 vezes”, “durante 6 meses”, “x 12”).
+- Rótulos sem dois-pontos (“Incentivo de 100 mil reais”), lançamentos citados com `#` (`#Coordenador * 2`) em contas à parte que não mexem nos totais das seções.
+- O autocompletar sugere os atalhos (Saldo, % Executado, % A executar, `Total #Seção`) e os lançamentos da nota com o valor.
+
+### Celular
+- O botão de anexar comprovante fica sempre visível ao lado dos valores, maior para o toque.
+
 ## 1.8.0 — fórmulas por voz e escrita natural, tutor de programação e transcrição offline mais robusta
 
 ### Fórmulas faladas e escritas em linguagem natural

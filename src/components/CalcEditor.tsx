@@ -78,7 +78,7 @@ export interface CalcEditorProps {
 }
 
 export interface Suggestion {
-  kind: 'var' | 'section' | 'func' | 'kw' | 'emoji' | 'cmd';
+  kind: 'var' | 'section' | 'func' | 'kw' | 'emoji' | 'cmd' | 'snippet';
   /** texto inserido */
   insert: string;
   value?: Value;
@@ -145,6 +145,18 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
   });
 
   /** abre/atualiza as sugestões para a palavra no cursor */
+  // atalhos prontos: Saldo, % Executado, % A executar, Total #Seção
+  const snippets = (): Suggestion[] => {
+    const secs = known.filter((k) => k.kind === 'section');
+    const out: Suggestion[] = [];
+    if (secs.some((k) => k.tone === 'income') && secs.some((k) => k.tone === 'expense')) {
+      out.push({ kind: 'snippet', insert: t('snip.balance'), detail: t('snip.balanceHint') });
+      out.push({ kind: 'snippet', insert: '% ' + t('snip.executed'), detail: t('snip.executedHint') });
+      out.push({ kind: 'snippet', insert: '% ' + t('snip.toExecute'), detail: t('snip.toExecuteHint') });
+    }
+    for (const sc of secs) out.push({ kind: 'snippet', insert: `Total ${sc.insert}`, tone: sc.tone, detail: t('snip.totalHint') });
+    return out;
+  };
   const suggest = (value: string, caret: number) => {
     const ta = taRef.current;
     // "/" no começo da linha ou depois de espaço: emojis, símbolos e o comando /ia
@@ -156,6 +168,7 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
       const start = caret - q.length - 1;
       const items: Suggestion[] = [];
       if ('ia'.startsWith(q.toLowerCase()) || 'ai'.startsWith(q.toLowerCase())) items.push({ kind: 'cmd', insert: '/ia ' });
+      for (const sn of snippets()) if (!q || fold(sn.insert).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).some((w) => w.startsWith(fold(q)))) items.push(sn);
       for (const e of searchEmoji(q, 30)) items.push({ kind: 'emoji', insert: e.e, detail: e.k.split(' ').slice(0, 2).join(' ') });
       if (!items.length) return setAc(null);
       const lineIdx = value.slice(0, caret).split('\n').length - 1;
@@ -170,14 +183,16 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
     if (!w || !ta || (!w.word.startsWith('#') && w.word.length < 2)) return setAc(null);
     const isTag = w.word.startsWith('#');
     const q = fold(w.word.replace(/^#/, ''));
+    // "#": seções e também os lançamentos (#Incentivo, #Coordenador…) com o valor
     const pool: Suggestion[] = isTag
-      ? known.filter((k) => k.kind === 'section')
-      : [...known, ...FUNC_NAMES.map((f): Suggestion => ({ kind: 'func', insert: f })), ...KEYWORDS.map((k): Suggestion => ({ kind: 'kw', insert: k }))];
+      ? [...known.filter((k) => k.kind === 'section'), ...known.filter((k) => k.kind === 'var' && !/\s/.test(k.insert)).map((k) => ({ ...k, insert: '#' + k.insert }))]
+      : [...snippets(), ...known, ...FUNC_NAMES.map((f): Suggestion => ({ kind: 'func', insert: f })), ...KEYWORDS.map((k): Suggestion => ({ kind: 'kw', insert: k }))];
     const seen = new Set<string>();
     const items = pool
       .filter((k) => {
         const name = fold(k.insert.replace(/^#/, ''));
-        if (seen.has(k.insert) || !name.startsWith(q) || name === q) return false;
+        const hit = k.kind === 'snippet' ? name.replace(/[^a-z0-9# ]/g, ' ').split(/\s+/).some((w) => w.replace(/^#/, '').startsWith(q)) : name.startsWith(q);
+        if (seen.has(k.insert) || !hit || name === q) return false;
         seen.add(k.insert);
         return true;
       })
@@ -392,13 +407,16 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
                 {t('slash.title')}
               </div>
             )}
-            {ac.grid && ac.items.some((x) => x.kind === 'cmd') && (
-              <button className={`ac-item ${ac.items[ac.sel]?.kind === 'cmd' ? 'on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(ac.items.find((x) => x.kind === 'cmd')!)}>
-                <span className="ac-kind">IA</span>
-                <span className="ac-label">/ia</span>
-                <span className="ac-detail">{t('slash.ai')}</span>
-              </button>
-            )}
+            {ac.grid &&
+              ac.items.map((it, i) =>
+                it.kind === 'cmd' || it.kind === 'snippet' ? (
+                  <button key={it.kind + it.insert} className={`ac-item ${i === ac.sel ? 'on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(it)}>
+                    <span className="ac-kind">{it.kind === 'cmd' ? 'IA' : 'ƒx'}</span>
+                    <span className={`ac-label ${it.tone ? 'tone-' + it.tone : ''}`}>{it.kind === 'cmd' ? '/ia' : it.insert}</span>
+                    <span className="ac-detail">{it.kind === 'cmd' ? t('slash.ai') : it.detail}</span>
+                  </button>
+                ) : null,
+              )}
             {ac.grid && (
               <div className="ac-emoji-grid">
                 {ac.items.map((it, i) =>
@@ -421,7 +439,7 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
               >
                 <span className="ac-kind">{t(`ac.${it.kind}`)}</span>
                 <span className={`ac-label ${it.tone ? 'tone-' + it.tone : ''}`}>{it.insert}</span>
-                {it.value && <span className="ac-detail">{formatValue(it.value, fmt)}</span>}
+                {it.value ? <span className="ac-detail">{formatValue(it.value, fmt)}</span> : it.detail ? <span className="ac-detail">{it.detail}</span> : null}
               </button>
             ))}
             <div className="ac-hint">{ac.grid ? t('slash.hint') : t('ac.hint')}</div>
@@ -475,6 +493,17 @@ export function CalcEditor({ blockId, text, results, fmt, firstLine, onChange, a
                     {hasReminder?.(i) ? <BellRing size={13} /> : <Bell size={13} />}
                   </button>
                 )}
+                {r.planned && r.planned.n !== 0 && (() => {
+                  const pct = r.value.n / r.planned.n;
+                  const over = pct > 1.0001 && r.sectionTone !== 'income';
+                  const ok = !over && pct >= 0.9999;
+                  const saldo = { ...r.planned, n: r.planned.n - r.value.n };
+                  return (
+                    <span className={`res-pvr ${over ? 'over' : ok ? 'ok' : ''}`} title={t('pvr.tip', { p: formatValue(r.planned, fmt), s: formatValue(saldo, fmt) })}>
+                      {formatValue({ n: pct, pct: true }, { ...fmt, precision: 1 })}
+                    </span>
+                  );
+                })()}
                 <button className="res-val" title={t('editor.clickToCopy')} onClick={() => copyResult(r.value!)}>
                   <span>{s}</span>
                   <Copy size={12} className="res-copy" />

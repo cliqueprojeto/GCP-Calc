@@ -11,7 +11,7 @@ import { toast } from '../store/ui';
 import { useT } from '../i18n';
 import type { LineResult } from '../engine/evaluate';
 
-function Preview({ text, ctx, fmt, base }: { text: string; ctx: EvalContext; fmt: FormatOptions; base?: DocState }) {
+export function Preview({ text, ctx, fmt, base }: { text: string; ctx: EvalContext; fmt: FormatOptions; base?: DocState }) {
   const res = useMemo(() => {
     const st: DocState = base ? { ...base, vars: new Map(base.vars), lines: [...base.lines], group: [], sections: new Map() } : newDocState();
     return evaluateDocument(text, ctx, st).lines;

@@ -42,6 +42,9 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 | 🧩 | **Variáveis, rótulos e funções** | `salario = R$ 7.500` · rótulos viram variáveis (`Aluguel: 1.500` → `Aluguel * 12`) · funções próprias (`f(x) = x^2 + 1`) · `total`, `média`, `prev`, `linha3` · `sqrt`, `round`, `log`, `ln`, trigonometria, `mdc`, `mmc`, `min`, `max` · financeiras `pmt` (parcela fixa / Price), `fv` (valor futuro), `pv` · hexadecimal, binário e notação científica |
 | 🧮 | **Seções, moeda e autocompletar (como num editor de código)** | `#Receitas` abre uma seção e `#Receitas` numa conta vale a soma dela — lançamentos com `:` ou com `=` (`salário = R$ 1.000`) contam; o nome funciona com ou sem `#` (`receitas - despesas`) e `total` soma a seção inteira · `Total #Receitas` · `#Receitas - #Despesas` (despesas negativas ou positivas são descontadas) · `Sobra %` = sobra em % das receitas · `Flora: 2.000` numa seção em reais vira **R$ 2.000,00**; quantidades (`pessoas: 2`) continuam números · separadores de milhar entram enquanto você digita · **Enter** formata a linha (`-R$ 100,00`) e preenche `= …` · autocompletar de variáveis (com o valor), `#seções` e funções · receitas em verde, despesas em vermelho |
 | 🗂️ | **Organizar com um clique** | Separa lançamentos em receitas e despesas, coloca a moeda, soma cada seção e calcula saldo e saldo % · prévia antes × depois · revisão opcional pela IA |
+| 🎯 | **Previsto × Realizado** | `Cachê: R$ 5.000 \| R$ 4.200` (previsto \| realizado) mostra o realizado com selo de **% executado** (verde ao completar, vermelho ao estourar) · subseções `## Equipe` dentro de `# Despesas` somam na seção-mãe · `Previsto #Despesas`, `Realizado #Despesas`, `Saldo a executar #Equipe`, `% Executado`, `% A executar`, `Saldo` · no BI, tabela com previsto, realizado, saldo e % por grupo e rubrica · modelo pronto com dados fictícios |
+| 📥 | **Importar planilhas e PDFs** | Excel, CSV, TXT, Markdown e PDF (orçamentos, planilhas de projetos culturais, prestações de contas) viram um bloco organizado: etapas e grupos como seções, quantidade × valor unitário, previsto \| realizado, totais e saldo · prévia antes de inserir como bloco ou nova nota |
+| ➖ | **Totais mais inteligentes** | `#Receitas - #Despesas` em vários formatos (`#Receitas-#Despesas`, `#Total (#Receitas - #Despesas)`, `#TOTAL`, `Saldo`) · `% Executado` e `% A executar` · “10 mil reais em 10 meses” vira `R$ 10.000 * 10 meses` · lançamentos citados com `#` em contas à parte (rascunho, prova) sem mexer nas seções · autocompletar com atalhos e lançamentos |
 | 📈 | **Relatórios comparativos (BI)** | Bloco que compara notas salvas lado a lado (ex.: orçamento do mês passado × este mês): seções, lançamentos e saldo com variação em valor e %, verde quando melhora e vermelho quando piora · entra no PDF, Word, PowerPoint e Excel |
 | 💻 | **Playground de código** | Bloco de código como um compilador online, dentro da nota: editor com cores, números de linha, indentação automática e pares · **▶ Rodar** (Ctrl+Enter) com terminal, entrada (stdin) e tempo de execução · **Python** (CPython completo), **JavaScript**, **TypeScript**, **SQL (SQLite)**, **HTML/CSS/JS** com prévia e **JSON** rodam embutidos — offline e no celular · no computador também **C, C++, Go, Rust, Java, Ruby, PHP, Bash e PowerShell** com os compiladores instalados · **lições de programação** prontas (estilo SoloLearn): explicação, código que roda e desafio |
 | 🧾 | **Comprovantes nas despesas** | Fotografe cupons e notas fiscais pela câmera do celular (ou anexe arquivos e PDFs no computador), vários de uma vez, ligados à linha da despesa · miniaturas sob o bloco, visualizador ampliado, baixar e excluir · entram no PDF, Word e PowerPoint |
@@ -148,8 +151,10 @@ O GCP-Calc ainda não usa certificados pagos de assinatura de código, por isso 
 
 ## 🖼️ Telas
 
-| Playground de código: Python, SQL e mais, com terminal | Comprovantes fotografados ligados às despesas, com emojis |
+| Previsto × Realizado no BI: saldo e % executado por grupo e rubrica | Importar planilha ou PDF e organizar num bloco |
 |---|---|
+| <img src="docs/screenshots/25-previsto-realizado.png" alt="Previsto × Realizado" /> | <img src="docs/screenshots/26-importar.png" alt="Importar planilha" /> |
+| **Playground de código: Python, SQL e mais, com terminal** | **Comprovantes fotografados ligados às despesas, com emojis** |
 | <img src="docs/screenshots/23-playground.png" alt="Playground de código" /> | <img src="docs/screenshots/24-comprovantes.png" alt="Comprovantes" /> |
 | **Lembretes: calendário, atrasados e total a pagar** | **Central de notificações com não lidas e arquivadas** |
 | <img src="docs/screenshots/20-lembretes.png" alt="Lembretes" /> | <img src="docs/screenshots/21-notificacoes.png" alt="Notificações" /> |
@@ -191,6 +196,10 @@ Médico: -R$ 2.000                negativas ou positivas, tanto faz
 Luz: R$ 150 vence 10/12          vencimento → lembrete (sino ao lado do resultado)
 Aluguel: R$ 1.800 vence dia 5    todo mês
 Sobra %                          sobra em % das receitas
+Saldo   ·   % Executado          receitas − despesas · despesas em % das receitas
+Cachê: R$ 5.000 | R$ 4.200       previsto | realizado (selo com % executado)
+## Equipe                        subseção: soma também na seção de cima
+Previsto #Despesas               também Realizado, Saldo a executar, % Executado
 Aluguel: R$ 1.500                rótulo + valor (o rótulo vira variável)
 x = 10 * 3                       variável
 300 + 10%   ·   20% de 300       porcentagens
@@ -311,6 +320,8 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Voice notes**: tap the mic and say what you bought; it's transcribed (OpenAI, Groq, Gemini or Mistral, or live dictation where available), turned into calculation lines with a preview, and the audio can be kept in the note.
 - **Reminders and notifications**: bills and commitments with amount, date, repeat and early alerts; system notifications on Android (scheduled, even with the app closed) and desktop; notification center with unread count and archive; month calendar; write `Power: $150 due 12/10` in a note and turn it into a reminder with one tap. All permissions are requested together on first launch and remembered.
 - **Comparison reports (BI)**: a block that compares saved notes side by side (e.g. last month's budget × this month), with change in value and %.
+- **Planned × Actual**: write `Fee: $5,000 | $4,200` (planned | actual) to get a % executed badge per line, `## Crew` subsections that roll up into `# Expenses`, ready lines (`Planned #Expenses`, `Actual #Expenses`, `% Executed`, `Balance`) and a Planned × Actual BI table with balance and % per group.
+- **Import spreadsheets and PDFs** (Excel, CSV, TXT, Markdown, PDF): stages and groups become sections, rows become quantity × price entries, with totals and a preview before inserting.
 - **Your own templates**: save any note as a template with its own icon and color, share it as a text code or `.gcptpl` file, and import templates from other people. New built-ins: shopping list, pets, split the bill, road trip, BBQ, installments vs. cash, savings goal, back to school.
 - **Percentages** (`300 + 10%`, `20% of 300`, `50 as % of 200`), **variables**, labels, custom functions, `total`/`average`/`prev`, dates, `pmt`/`fv`/`pv`, hex and binary.
 - **Notes with name, color and icon** (1,500+ Lucide icons and emoji), folders, trash, templates and quick search (`Ctrl+K`).
@@ -338,6 +349,8 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 - **Notas de voz**: toca el micrófono y di lo que compraste; se transcribe (OpenAI, Groq, Gemini o Mistral, o dictado en vivo donde exista), se convierte en líneas de cálculo con vista previa y el audio puede quedar en la nota.
 - **Recordatorios y notificaciones**: cuentas y compromisos con valor, fecha, repetición y aviso previo; notificaciones del sistema en Android (programadas, incluso con la app cerrada) y en el escritorio; centro de notificaciones con no leídas y archivadas; calendario del mes; escribe `Luz: € 60 vence 10/12` en una nota y crea el recordatorio con un toque. Todos los permisos se piden juntos al abrir la app por primera vez y se recuerdan.
 - **Informes comparativos (BI)**: un bloque que compara notas guardadas lado a lado (ej.: presupuesto del mes pasado × este mes), con variación en valor y %.
+- **Previsto × Realizado**: escribe `Caché: € 5.000 | € 4.200` (previsto | realizado) para ver el % ejecutado por línea, subsecciones `## Equipo` que suman en `# Gastos`, líneas listas (`Previsto #Gastos`, `Realizado #Gastos`, `% Ejecutado`, `Saldo`) y una tabla BI con saldo y % por grupo.
+- **Importar hojas y PDF** (Excel, CSV, TXT, Markdown, PDF): etapas y grupos se vuelven secciones, las filas partidas con cantidad × precio, con totales y vista previa antes de insertar.
 - **Plantillas propias**: guarda cualquier nota como plantilla con icono y color, compártela como código de texto o archivo `.gcptpl` e importa plantillas de otras personas. Nuevas incluidas: lista de compras, mascotas, dividir la cuenta, viaje en coche, asado, a plazos o al contado, meta de ahorro, vuelta al cole.
 - **Porcentajes** (`300 + 10%`, `20% de 300`, `50 en % de 200`), **variables**, etiquetas, funciones propias, `total`/`promedio`/`prev`, fechas, `pmt`/`fv`/`pv`, hexadecimal y binario.
 - **Notas con nombre, color e icono** (1.500+ iconos Lucide y emojis), carpetas, papelera, plantillas y búsqueda rápida (`Ctrl+K`).

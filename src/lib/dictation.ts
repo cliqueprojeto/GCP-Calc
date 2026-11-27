@@ -51,6 +51,17 @@ export function wordsToNumbers(text: string, lang?: Lang): string {
       out.push(parts[i++]);
       continue;
     }
+    // "10 mil", "2,5 milhões": algarismos seguidos de escala
+    if (w in SCALES && w !== 'hundred') {
+      let k = out.length - 1;
+      while (k >= 0 && /^\s+$/.test(out[k])) k--;
+      const prevNum = k >= 0 ? out[k].replace(/\./g, '').replace(',', '.') : '';
+      if (k >= 0 && /^\d+(\.\d+)?$/.test(prevNum)) {
+        out.splice(k, out.length - k, String(Math.round(parseFloat(prevNum) * SCALES[w])));
+        i++;
+        continue;
+      }
+    }
     // junta "vinte e sete", "mil e duzentos", "twenty-seven", "one hundred and five"
     let total = 0;
     let cur = 0;
@@ -126,6 +137,13 @@ function entryItems(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; 
     const income = INCOME[lang].test(p);
     const said = classifyTerm(p);
     for (let i = 0; i < 3; i++) p = p.replace(VERBS[lang], '');
+    // "em 10 meses", "por 3 vezes", "durante 6 meses", "em 12 parcelas", "para 4 pessoas": multiplica
+    let mult = '';
+    const mm = p.match(/(?:^|\s)(?:em|por|durante|para|x|vezes|for|during|in|over|en)\s+(\d+)\s*(meses|m[eê]s|vezes|parcelas?|presta[cç][oõ]es|semanas?|anos?|dias?|horas?|pessoas?|unidades?|turmas?|encontros?|edi[cç][oõ]es|months?|times|installments?|weeks?|years?|days?|hours?|people|persons?|units?|cuotas?|veces|a[nñ]os|d[ií]as|personas?)(?=\s|$|[,.;])/iu) ?? p.match(/(?:^|\s)(?:x|vezes|times|veces)\s*(\d+)(?=\s|$)/iu);
+    if (mm) {
+      mult = ` * ${mm[1]}${mm[2] ? ' ' + mm[2].toLowerCase() : ''}`;
+      p = (p.slice(0, mm.index) + ' ' + p.slice(mm.index! + mm[0].length)).replace(/\s+/g, ' ').trim();
+    }
     // último número do trecho é o valor (aceita 1.234,56 / 1,234.56 / 27,90)
     const nums = [...p.matchAll(/\d[\d.,]*/g)];
     if (!nums.length) {
@@ -146,7 +164,9 @@ function entryItems(text: string, lang: Lang, opts: { decimal: 'comma' | 'dot'; 
       .trim();
     if (!label) label = p.slice(last.index! + last[0].length).replace(FILLERS[lang], ' ').replace(/\s+/g, ' ').trim();
     if (!label) label = lang === 'en' ? 'Item' : 'Item';
-    value = `${opts.symbol} ${value}`;
+    // milhares com separador ("10000" → "10.000")
+    if (/^\d{4,}$/.test(value)) value = value.replace(/\B(?=(\d{3})+(?!\d))/g, opts.decimal === 'comma' ? '.' : ',');
+    value = `${opts.symbol} ${value}${mult}`;
     const sign = income ? '' : '';
     const tone = income ? 'income' : said ?? classifyTerm(label) ?? overall;
     out.push({ line: `${cap(label)}: ${sign}${qty && qty !== '1' ? `${qty} * ` : ''}${value}`, tone });

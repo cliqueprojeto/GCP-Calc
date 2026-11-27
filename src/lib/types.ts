@@ -15,7 +15,7 @@ export type Block =
   | { id: string; type: 'progress'; label: string; value: string; goal: string; color: string }
   | { id: string; type: 'ticker'; codes: string[] }
   /** relatório comparativo entre notas (ex.: orçamento do mês passado × este mês); "self" = a própria nota */
-  | { id: string; type: 'compare'; sources: string[]; title?: string; only?: 'all' | 'sections' }
+  | { id: string; type: 'compare'; sources: string[]; title?: string; only?: 'all' | 'sections'; mode?: 'notes' | 'pvr' }
   /** bloco de código (playground): editar, rodar e ver a saída no terminal */
   | { id: string; type: 'code'; lang: string; code: string; stdin?: string; title?: string; output?: { t: string; s: string }[]; ok?: boolean; ms?: number; challenge?: { title: string; statement: string; expected?: string; hint?: string; solved?: boolean } }
   /** anotação de voz gravada na nota (áudio compactado) com a transcrição */

@@ -8,6 +8,8 @@ export interface Template {
   desc: Record<Lang, string>;
   text: Record<Lang, string>;
   chart?: 'bar' | 'pie' | 'donut' | 'hbar';
+  /** adiciona o relatório BI "Previsto × Realizado" */
+  pvr?: boolean;
 }
 
 const j = (...l: string[]) => l.join('\n');
@@ -50,6 +52,19 @@ export const TEMPLATES: Template[] = [
       pt: j('# Projeto cultural', 'Pré-produção: R$ 18.000', 'Produção: R$ 96.000', 'Divulgação: R$ 22.000', 'Custos administrativos: R$ 14.000', 'Captação: R$ 12.000', 'projeto = total', '', '# Conferência de limites', 'Divulgação em % de projeto', 'Custos administrativos em % de projeto', '// limite de divulgação 20% e administrativos 15% (verifique o edital)', 'teto divulgação = 20% de projeto', 'teto administrativo = 15% de projeto'),
       en: j('# Cultural project', 'Pre-production: $18,000', 'Production: $96,000', 'Marketing: $22,000', 'Administrative: $14,000', 'Fundraising: $12,000', 'project = total', '', '# Checking caps', 'Marketing as % of project', 'Administrative as % of project', 'marketing cap = 20% of project', 'admin cap = 15% of project'),
       es: j('# Proyecto cultural', 'Preproducción: € 18.000', 'Producción: € 96.000', 'Difusión: € 22.000', 'Administración: € 14.000', 'Captación: € 12.000', 'proyecto = total', '', '# Control de límites', 'Difusión en % de proyecto', 'Administración en % de proyecto', 'tope difusion = 20% de proyecto', 'tope administracion = 15% de proyecto'),
+    },
+  },
+  {
+    id: 'pvr',
+    icon: 'Target',
+    color: '#0ea5e9',
+    pvr: true,
+    title: { pt: 'Previsto × Realizado', en: 'Planned × Actual', es: 'Previsto × Realizado' },
+    desc: { pt: 'Meta, realizado, saldo e % executado por rubrica (dados fictícios)', en: 'Planned, actual, balance and % executed per line (sample data)', es: 'Meta, realizado, saldo y % ejecutado por rubro (datos ficticios)' },
+    text: {
+      pt: j('// Previsto | Realizado — dados fictícios de exemplo', '# Receitas', 'Lei de incentivo: R$ 180.000 | R$ 180.000', 'Patrocínio direto: R$ 40.000 | R$ 25.000', 'Bilheteria: R$ 15.000 | R$ 18.600', 'Rendimentos da conta: R$ 0 | R$ 1.240', '', '# Despesas', '## Pré-produção', 'Pesquisa e roteiro: R$ 8.000 | R$ 8.000', 'Visitas técnicas: R$ 3.500 | R$ 2.180', '## Equipe técnica', 'Coordenação geral: R$ 4.000 * 10 meses | R$ 40.000', 'Produção executiva: R$ 3.000 * 10 meses | R$ 30.000', 'Assistente de produção: R$ 1.800 * 8 meses | R$ 12.600', 'Técnico de som e luz: R$ 9.000 | R$ 10.350', '## Produção', 'Locação de equipamentos: R$ 22.000 | R$ 19.400', 'Cenografia e figurino: R$ 18.000 | R$ 21.300', 'Transporte e logística: R$ 12.000 | R$ 7.850', 'Alimentação da equipe: R$ 6.000 | R$ 4.120', '## Divulgação', 'Assessoria de imprensa: R$ 9.000 | R$ 9.000', 'Mídia digital: R$ 12.000 | R$ 6.300', 'Impressos: R$ 4.500 | R$ 3.960', '## Administrativo', 'Contabilidade: R$ 6.000 | R$ 4.500', 'Tarifas bancárias: R$ 1.200 | R$ 640', '', 'Previsto #Despesas', 'Realizado #Despesas', 'Saldo a executar #Despesas', '% Executado', '% A executar', 'Saldo'),
+      en: j('// Planned | Actual — fictional sample data', '# Income', 'Grant: $180,000 | $180,000', 'Direct sponsorship: $40,000 | $25,000', 'Ticket sales: $15,000 | $18,600', 'Account interest: $0 | $1,240', '', '# Expenses', '## Pre-production', 'Research and script: $8,000 | $8,000', 'Site visits: $3,500 | $2,180', '## Crew', 'General coordination: $4,000 * 10 months | $40,000', 'Executive production: $3,000 * 10 months | $30,000', 'Production assistant: $1,800 * 8 months | $12,600', 'Sound and light tech: $9,000 | $10,350', '## Production', 'Equipment rental: $22,000 | $19,400', 'Sets and costumes: $18,000 | $21,300', 'Transport and logistics: $12,000 | $7,850', 'Crew meals: $6,000 | $4,120', '## Marketing', 'Press office: $9,000 | $9,000', 'Digital ads: $12,000 | $6,300', 'Printed material: $4,500 | $3,960', '## Administrative', 'Accounting: $6,000 | $4,500', 'Bank fees: $1,200 | $640', '', 'Planned #Expenses', 'Actual #Expenses', 'Remaining #Expenses', '% Executed', '% To execute', 'Balance'),
+      es: j('// Previsto | Realizado — datos ficticios de ejemplo', '# Ingresos', 'Ley de incentivo: € 180.000 | € 180.000', 'Patrocinio directo: € 40.000 | € 25.000', 'Taquilla: € 15.000 | € 18.600', 'Intereses de la cuenta: € 0 | € 1.240', '', '# Gastos', '## Preproducción', 'Investigación y guion: € 8.000 | € 8.000', 'Visitas técnicas: € 3.500 | € 2.180', '## Equipo técnico', 'Coordinación general: € 4.000 * 10 meses | € 40.000', 'Producción ejecutiva: € 3.000 * 10 meses | € 30.000', 'Asistente de producción: € 1.800 * 8 meses | € 12.600', 'Técnico de sonido y luz: € 9.000 | € 10.350', '## Producción', 'Alquiler de equipos: € 22.000 | € 19.400', 'Escenografía y vestuario: € 18.000 | € 21.300', 'Transporte y logística: € 12.000 | € 7.850', 'Comidas del equipo: € 6.000 | € 4.120', '## Difusión', 'Prensa: € 9.000 | € 9.000', 'Medios digitales: € 12.000 | € 6.300', 'Impresos: € 4.500 | € 3.960', '## Administración', 'Contabilidad: € 6.000 | € 4.500', 'Comisiones bancarias: € 1.200 | € 640', '', 'Previsto #Gastos', 'Realizado #Gastos', 'Por ejecutar #Gastos', '% Ejecutado', '% Por ejecutar', 'Saldo'),
     },
   },
   {
