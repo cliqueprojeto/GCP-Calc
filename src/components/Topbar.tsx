@@ -65,7 +65,7 @@ export function Topbar() {
         title={t(`sync.${sync.status}` as 'sync.off')}
         onClick={() => go({ kind: 'settings', section: 'backup' })}
       >
-        {sync.status === 'syncing' ? <Loader2 size={17} className="spin" /> : sync.status === 'off' ? <CloudOff size={17} /> : sync.status === 'error' || sync.status === 'wrong-pass' ? <CloudAlert size={17} /> : <Cloud size={17} />}
+        {sync.status === 'syncing' ? <Loader2 size={17} className="spin" /> : sync.status === 'off' ? <CloudOff size={17} /> : sync.status === 'error' || sync.status === 'wrong-pass' || sync.status === 'need-pass' ? <CloudAlert size={17} /> : <Cloud size={17} />}
       </button>
       <button className="icon-btn" onClick={toggleDark} title={t('topbar.toggleTheme')}>
         {theme.dark ? <Sun size={17} /> : <Moon size={17} />}

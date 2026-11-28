@@ -43,6 +43,7 @@ export const es: Dict = {
   'rates.never': 'Cotizaciones aún no descargadas',
   'rates.count': '{n} monedas',
 
+  'sync.need-pass': "Falta la frase para sincronizar",
   'sync.off': 'Sincronización desactivada',
   'sync.idle': 'Sincronización lista',
   'sync.syncing': 'Sincronizando…',
@@ -349,6 +350,9 @@ export const es: Dict = {
   'voice.offlineOffHere': "Transcripción offline desactivada en este dispositivo: la última vez faltó memoria y Android cerró la app. La voz usa la IA configurada o puedes escribir.",
   'voice.offlineTryAgain': "Intentar de nuevo",
   'voice.crashNotice': "GCP-Calc se cerró al cargar la transcripción offline (faltó memoria). Se desactivó en este móvil: la voz usa la IA configurada. Puedes reactivarla en la pantalla de voz.",
+  'cloud.needPass': "Define la frase de cifrado para sincronizar (protege tus datos en Drive).",
+  'cloud.needPassBanner': "¡Conectado! Solo falta la frase de cifrado para empezar a sincronizar.",
+  'cloud.setPass': "Definir frase",
   'cmp.hint': "Elige al menos dos notas para comparar. Las secciones (#Ingresos, #Gastos) y los movimientos con el mismo nombre se alinean lado a lado, con la variación en valor y en %.",
   'inbox.title': "Notificaciones",
   'inbox.unread': "No leídas",

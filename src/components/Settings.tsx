@@ -1,6 +1,6 @@
 import { PermissionsSettings } from './Permissions';
 import { SecuritySettings } from './Lock';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Bot,
   Calculator,
@@ -30,6 +30,7 @@ import {
   GitBranch,
   ShieldCheck,
   Mic,
+  CloudAlert,
   BookOpen,
   FileJson,
 } from 'lucide-react';
@@ -655,6 +656,27 @@ function BackupSettings() {
     }
   };
 
+  const passRef = useRef<HTMLInputElement>(null);
+  /** sem frase-senha não há como cifrar: leva ao campo e explica */
+  const askPass = () => {
+    passRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => passRef.current?.focus(), 350);
+    toast(t('cloud.needPass'), 'error');
+  };
+  const manualSync = () =>
+    !cloud.passphrase
+      ? askPass()
+      : run('sync', async () => {
+          useSync.setState({ status: 'syncing' });
+          try {
+            await syncNow({});
+            useSync.setState({ status: 'ok', lastAt: Date.now(), error: undefined, pending: false });
+          } catch (e) {
+            const m = String((e as Error)?.message || e);
+            useSync.setState({ status: m.includes('wrong-passphrase') ? 'wrong-pass' : 'error', error: m });
+            throw e;
+          }
+        }, t('cloud.synced'));
   const savePass = async () => {
     if (pass.length < 8) return toast(t('cloud.passShort'), 'error');
     await run('pass', async () => {
@@ -705,10 +727,10 @@ function BackupSettings() {
           <div className="btn-row">
             {acc ? (
               <>
-                <button className="btn sm" disabled={!!busy || !cloud.passphrase} onClick={() => run('sync', () => syncNow({}), t('cloud.synced'))}>
+                <button className="btn sm" disabled={!!busy} onClick={manualSync}>
                   <RefreshCw size={14} className={busy === 'sync' || sync.status === 'syncing' ? 'spin' : ''} /> {t('cloud.syncNow')}
                 </button>
-                <button className="btn sm" disabled={!!busy || !cloud.passphrase} onClick={() => run('backup', backupNow, t('cloud.backedUp'))}>
+                <button className="btn sm" disabled={!!busy} onClick={() => (!cloud.passphrase ? askPass() : run('backup', backupNow, t('cloud.backedUp')))}>
                   <CloudUpload size={14} /> {t('cloud.backupNow')}
                 </button>
                 <button className="btn sm danger-text" onClick={() => confirm(t('cloud.disconnectConfirm')) && disconnect()}>
@@ -716,13 +738,26 @@ function BackupSettings() {
                 </button>
               </>
             ) : (
-              <button className="btn sm primary grad" disabled={!!busy || !isTauri} onClick={() => run('connect', connect, t('cloud.connected'))}>
+              <button className="btn sm primary grad" disabled={!!busy || !isTauri} onClick={() => run('connect', async () => {
+                await connect();
+                // logo depois de conectar: sem frase-senha ainda, pede já
+                if (!useData.getState().settings.cloud.passphrase) setTimeout(askPass, 400);
+              }, t('cloud.connected'))}>
                 {busy === 'connect' ? <Loader2 size={14} className="spin" /> : <CloudUpload size={14} />} {t('cloud.connect')}
               </button>
             )}
           </div>
         </div>
 
+        {acc && !cloud.passphrase && (
+          <div className="sync-warn">
+            <CloudAlert size={16} />
+            <span>{t('cloud.needPassBanner')}</span>
+            <button className="btn sm primary grad" onClick={askPass}>
+              <KeyRound size={14} /> {t('cloud.setPass')}
+            </button>
+          </div>
+        )}
         <div className="sub-card drive-setup">
           <div className="row-between">
             <b>{t('cloud.setupTitle')}</b>
@@ -771,7 +806,7 @@ function BackupSettings() {
         <div className="sub-card">
           <Field label={<><KeyRound size={13} /> {t('cloud.passphrase')}</>} hint={cloud.passphrase ? t('cloud.passSet') : t('cloud.passHint')}>
             <div className="input-group">
-              <input className="input" type="password" value={pass} placeholder={cloud.passphrase ? '••••••••' : t('cloud.passPlaceholder')} onChange={(e) => setPass(e.target.value)} />
+              <input ref={passRef} className={`input ${acc && !cloud.passphrase ? 'need' : ''}`} type="password" value={pass} placeholder={cloud.passphrase ? '••••••••' : t('cloud.passPlaceholder')} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void savePass()} />
               <button className="btn sm" onClick={savePass} disabled={!pass || busy === 'pass'}>
                 {busy === 'pass' ? <Loader2 size={14} className="spin" /> : <Check size={14} />} {t('common.save')}
               </button>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.3 — sincronização do Google Drive mais clara
+
+- Depois de conectar o Google Drive, faltava um passo que o app não deixava claro: a **frase-senha da criptografia** (sem ela não há como cifrar os dados, então nada era sincronizado e os botões ficavam apagados).
+  - O ícone da nuvem no topo agora mostra **“Falta a frase-senha para sincronizar”**, com ícone de alerta.
+  - Logo abaixo da conta conectada aparece o aviso **“Falta só a frase-senha…”** com o botão **Definir frase-senha**.
+  - Assim que você conecta, o app já leva ao campo da frase-senha (destacado). Enter salva.
+  - **Sincronizar** e **Backup agora** ficam sempre disponíveis: sem frase-senha, explicam o que falta; com ela, sincronizam na hora e atualizam o ícone do topo.
+
 ## 1.11.2 — microfone com um toque, transcrição offline de verdade e câmera nos comprovantes
 
 - **Microfone com um toque (Android):** o botão flutuante abre a janela de voz com um toque simples. Antes, o toque abria a janela e o próprio “clique” do Android a fechava em seguida — só funcionava segurando. Nenhuma janela do app fecha mais com o toque que a abriu.

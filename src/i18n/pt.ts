@@ -41,6 +41,7 @@ export const pt = {
   'rates.never': 'Cotações ainda não baixadas',
   'rates.count': '{n} moedas',
 
+  'sync.need-pass': "Falta a frase-senha para sincronizar",
   'sync.off': 'Sincronização desligada',
   'sync.idle': 'Sincronização pronta',
   'sync.syncing': 'Sincronizando…',
@@ -347,6 +348,9 @@ export const pt = {
   'voice.offlineOffHere': "Transcrição offline desligada neste aparelho: na última tentativa faltou memória e o Android fechou o app. A voz usa a IA configurada ou você pode digitar.",
   'voice.offlineTryAgain': "Tentar de novo",
   'voice.crashNotice': "O GCP-Calc fechou ao carregar a transcrição offline (faltou memória no aparelho). Ela foi desligada neste celular — a voz passa a usar a IA configurada. Dá para religar na tela de voz.",
+  'cloud.needPass': "Defina a frase-senha da criptografia para sincronizar (ela protege seus dados no Drive).",
+  'cloud.needPassBanner': "Conectado! Falta só a frase-senha da criptografia para começar a sincronizar.",
+  'cloud.setPass': "Definir frase-senha",
   'cmp.hint': "Escolha ao menos duas notas para comparar. Seções (#Receitas, #Despesas) e lançamentos com o mesmo nome são alinhados lado a lado, com a variação em valor e em %.",
   'inbox.title': "Notificações",
   'inbox.unread': "Não lidas",

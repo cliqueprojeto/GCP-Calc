@@ -43,6 +43,7 @@ export const en: Dict = {
   'rates.never': 'Rates not downloaded yet',
   'rates.count': '{n} currencies',
 
+  'sync.need-pass': "Passphrase needed to sync",
   'sync.off': 'Sync off',
   'sync.idle': 'Sync ready',
   'sync.syncing': 'Syncing…',
@@ -349,6 +350,9 @@ export const en: Dict = {
   'voice.offlineOffHere': "Offline transcription is off on this device: last time it ran out of memory and Android closed the app. Voice uses your AI provider, or you can type.",
   'voice.offlineTryAgain': "Try again",
   'voice.crashNotice': "GCP-Calc closed while loading offline transcription (the device ran out of memory). It was turned off on this phone — voice now uses your AI provider. You can turn it back on in the voice screen.",
+  'cloud.needPass': "Set the encryption passphrase to sync (it protects your data on Drive).",
+  'cloud.needPassBanner': "Connected! Just set the encryption passphrase to start syncing.",
+  'cloud.setPass': "Set passphrase",
   'cmp.hint': "Pick at least two notes to compare. Sections (#Income, #Expenses) and entries with the same name are lined up side by side, with the change in value and %.",
   'inbox.title': "Notifications",
   'inbox.unread': "Unread",

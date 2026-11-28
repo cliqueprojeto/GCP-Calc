@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { useData } from '../store/data';
 import { syncNow } from './cloud';
 
-export type SyncStatus = 'off' | 'idle' | 'syncing' | 'ok' | 'error' | 'offline' | 'wrong-pass';
+export type SyncStatus = 'off' | 'idle' | 'syncing' | 'ok' | 'error' | 'offline' | 'wrong-pass' | 'need-pass';
 
 interface SyncState {
   status: SyncStatus;
@@ -50,7 +50,9 @@ export function syncSoon(): Promise<void> {
 
 async function runOnce() {
   if (!enabled()) {
-    useSync.setState({ status: 'off' });
+    const c = useData.getState().settings.cloud;
+    // conectado ao Drive, mas sem a frase-senha: não dá para cifrar, então avisa
+    useSync.setState({ status: c.accounts.length > 0 && !c.passphrase ? 'need-pass' : 'off' });
     return;
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -87,7 +89,7 @@ export function startAutoSync() {
   syncSoon();
   useData.subscribe((s, p) => {
     if (s.rev !== p.rev) schedulePush();
-    if (s.settings.cloud !== p.settings.cloud && enabled() && useSync.getState().status === 'off') syncSoon();
+    if (s.settings.cloud !== p.settings.cloud && (['off', 'need-pass'].includes(useSync.getState().status) || !enabled())) syncSoon();
   });
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(() => {
