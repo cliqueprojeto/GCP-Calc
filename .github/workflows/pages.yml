@@ -2,17 +2,13 @@ name: Web (iPhone, iPad e navegador) — GitHub Pages
 # Publica a versão web do GCP-Calc em https://cliqueprojeto.github.io/GCP-Calc/
 # (no iPhone/iPad: Safari → Compartilhar → Adicionar à Tela de Início).
 # Roda junto com cada versão nova (docs/release-notes) ou manualmente pela aba Actions.
-#
-# O site vai para o branch gh-pages (o GitHub Pages serve esse branch sem precisar mexer nas
-# configurações) e, se o Pages estiver configurado com a fonte "GitHub Actions", também é
-# publicado por lá.
 on:
   push:
     branches: [main]
     paths: ['docs/release-notes/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 concurrency:
@@ -38,15 +34,7 @@ jobs:
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
           du -sh dist
-      - name: Publicar no branch gh-pages
-        run: |
-          cd dist
-          git init -q -b gh-pages
-          git config user.name "Bruno Albertini"
-          git config user.email "cliqueprojeto@gmail.com"
-          git add -A
-          git commit -q -m "Site web do GCP-Calc ${{ github.sha }}"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -54,8 +42,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-24.04
-    # só funciona se o Pages estiver com a fonte "GitHub Actions"; senão o branch gh-pages basta
-    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.d.outputs.page_url }}
