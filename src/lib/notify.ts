@@ -17,7 +17,7 @@ export async function systemNotify(title: string, body: string, key?: string) {
       return true;
     }
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification(title, { body, tag: key, icon: '/logo.svg' });
+      new Notification(title, { body, tag: key, icon: `${import.meta.env.BASE_URL}logo.svg` });
       return true;
     }
   } catch (e) {
