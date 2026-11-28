@@ -72,10 +72,12 @@ jobs:
           for cfg in release Release; do mkdir -p "src-tauri/gen/apple/Externals/arm64/$cfg"; cp "$LIB" "src-tauri/gen/apple/Externals/arm64/$cfg/libapp.a"; done
           # a fase "Build Rust Code" do Xcode chama o tauri-cli; o núcleo já foi compilado acima
           PBX=$(ls src-tauri/gen/apple/*.xcodeproj/project.pbxproj | head -1)
-          perl -0pi -e 's/(shellScript = ")[^"]*tauri[^"]*xcode-script[^"]*(";)/$1exit 0$2/g' "$PBX"
+          perl -pi -e 's/^(\s*shellScript = ).*xcode-script.*$/$1"exit 0";/' "$PBX"
           grep -n "shellScript" "$PBX" | head
+          if grep -q "xcode-script" "$PBX"; then echo "::error::não consegui desligar a fase Build Rust Code"; exit 1; fi
       - name: Compilar o app (sem assinatura)
         run: |
+          set -o pipefail
           cd src-tauri/gen/apple
           PROJ=$(ls -d *.xcodeproj | head -1)
           SCHEME=$(xcodebuild -list -json -project "$PROJ" | python3 -c "import json,sys; s=json.load(sys.stdin)['project']['schemes']; print(next(x for x in s if x.endswith('_iOS')))")
@@ -83,11 +85,17 @@ jobs:
           echo "projeto=$PROJ esquema=$SCHEME configuração=$CONF"
           xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration "$CONF" -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" build | tail -40
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" build > xcodebuild.log 2>&1 || { grep -E "error|failed|Error" xcodebuild.log | head -60; tail -60 xcodebuild.log; exit 1; }
+          tail -15 xcodebuild.log
           APP=$(find build/Build/Products -name "*.app" -type d | head -1)
           test -n "$APP"
           echo "APP=$APP"
           ls -la "$APP" | head -30
+          # o executável precisa existir e ter tamanho real (o núcleo em Rust fica dentro dele)
+          EXE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
+          test -f "$APP/$EXE"
+          du -sh "$APP" "$APP/$EXE"
+          test "$(stat -f%z "$APP/$EXE")" -gt 1000000
       - name: Empacotar .ipa
         id: pkg
         run: |
@@ -100,6 +108,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           shasum -a 256 "$OUT" | sed "s#  .*#  $OUT#" > "$OUT.sha256"
           ls -la "$OUT"; cat "$OUT.sha256"
+          test "$(stat -f%z "$OUT")" -gt 1000000
           echo "file=$OUT" >> "$GITHUB_OUTPUT"
           echo "tag=v$V" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
