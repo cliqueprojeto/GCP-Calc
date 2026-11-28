@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.11.4 — números por extenso, as quatro operações em linguagem natural e notificações com a cara do app
+
+### Números e operações em linguagem natural
+- **Números por extenso** na linha digitada, misturados ou não com algarismos: `Seis dividido por 2` = 3, `vinte e sete mais 3` = 30, `três vezes 4` = 12, `cento e vinte vezes dois` = 240, `mil e quinhentos dividido por 3` = 500, `dois mil e trezentos mais 200` = 2.500.
+- **As quatro operações** com mais jeitos de dizer: *mais, somado a, menos, tirando, descontando, vezes, multiplicado por, dividido por, dividido em, dividido entre, sobre* (`quinze sobre 3` = 5).
+- **Porcentagens e frações por extenso:** `vinte por cento de 300` = 60, `dois terços de 90` = 60, `metade de 90` = 45, `2/3 de 90` = 60, `meio` = 0,5 — e `20% sobre 300` continua sendo porcentagem.
+- Frases de conta não viram mais rótulo por engano (“Seis dividido” deixava de ser uma variável), e “um” como artigo (“Paguei um café de 5”) continua sendo artigo.
+- Também em inglês (*six divided by two*, *twenty percent of 300*) e espanhol (*seis dividido por dos*, *veintitrés menos tres*).
+
+### Notificações e janelas
+- **Notificações do navegador** com o ícone e o selo do GCP-Calc (o ícone aparecia quebrado), botões **Marcar como pago/recebido** e **Abrir**, e avisos de atraso que ficam na tela até você agir.
+- **Janelas de confirmação e de senha no visual do app**, no lugar das caixas genéricas do navegador (“site diz…”): excluir pasta, comprovante ou nota de áudio, esvaziar a lixeira, desconectar o Drive, restaurar backup, senha do arquivo de backup.
+- Na versão web, o logo do app aparece corretamente.
+
 ## 1.11.3 — sincronização do Google Drive mais clara
 
 - Depois de conectar o Google Drive, faltava um passo que o app não deixava claro: a **frase-senha da criptografia** (sem ela não há como cifrar os dados, então nada era sincronizado e os botões ficavam apagados).

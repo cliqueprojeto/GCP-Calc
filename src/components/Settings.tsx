@@ -56,6 +56,7 @@ import { DEV_URL } from './Sidebar';
 import { useEvalContext, formatOptions } from '../lib/calcContext';
 import { evaluateLine, newDocState } from '../engine/evaluate';
 import { formatValue } from '../engine/value';
+import { askConfirm, askText } from './Dialogs';
 
 type Section = 'general' | 'calc' | 'currency' | 'ai' | 'backup' | 'security' | 'permissions' | 'updates' | 'about';
 
@@ -632,7 +633,7 @@ function BackupSettings() {
   };
 
   const exportFile = async () => {
-    const pw = prompt(t('file.passwordPrompt')) ?? '';
+    const pw = (await askText({ title: t('file.export'), message: t('file.passwordPrompt'), password: true })) ?? '';
     const doc = exportDoc();
     const payload = pw ? { format: FILE_FORMAT, encrypted: true, sealed: await seal(pw, JSON.stringify(doc)) } : { format: FILE_FORMAT, encrypted: false, data: doc };
     const d = new Date().toISOString().slice(0, 10);
@@ -645,10 +646,10 @@ function BackupSettings() {
     try {
       const o = JSON.parse(f.text);
       let doc: DataDoc;
-      if (o.format === FILE_FORMAT && o.encrypted) doc = JSON.parse(await openSealed(prompt(t('file.passwordAsk')) ?? '', o.sealed as Sealed));
+      if (o.format === FILE_FORMAT && o.encrypted) doc = JSON.parse(await openSealed((await askText({ title: t('file.import'), message: t('file.passwordAsk'), password: true })) ?? '', o.sealed as Sealed));
       else doc = o.data ?? o;
       if (!Array.isArray(doc.notes)) throw new Error('invalid');
-      const replace = confirm(t('file.replaceConfirm'));
+      const replace = await askConfirm({ title: t('file.import'), message: t('file.replaceAsk'), ok: t('file.replaceAll'), cancel: t('file.mergeAll') });
       importDoc(doc, replace ? 'replace' : 'merge');
       toast(t('file.imported', { n: doc.notes.length }), 'ok');
     } catch (e) {
@@ -733,7 +734,7 @@ function BackupSettings() {
                 <button className="btn sm" disabled={!!busy} onClick={() => (!cloud.passphrase ? askPass() : run('backup', backupNow, t('cloud.backedUp')))}>
                   <CloudUpload size={14} /> {t('cloud.backupNow')}
                 </button>
-                <button className="btn sm danger-text" onClick={() => confirm(t('cloud.disconnectConfirm')) && disconnect()}>
+                <button className="btn sm danger-text" onClick={async () => (await askConfirm({ message: t('cloud.disconnectConfirm'), danger: true, ok: t('cloud.disconnect') })) && disconnect()}>
                   {t('cloud.disconnect')}
                 </button>
               </>
@@ -856,7 +857,7 @@ function BackupSettings() {
               <div key={f.id} className="backup-row">
                 <span>{f.name}</span>
                 <small>{new Date(f.modified).toLocaleString(LOCALES[lang])}</small>
-                <button className="btn sm" onClick={() => confirm(t('cloud.restoreConfirm')) && run('restore', () => restoreBackup(f.id), t('cloud.restored'))}>
+                <button className="btn sm" onClick={async () => (await askConfirm({ message: t('cloud.restoreConfirm'), ok: t('cloud.restoreBtn') })) && run('restore', () => restoreBackup(f.id), t('cloud.restored'))}>
                   <RotateCcw size={14} /> {t('cloud.restoreBtn')}
                 </button>
               </div>

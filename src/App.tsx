@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useData, flushSave } from './store/data';
 import { useUi } from './store/ui';
 import { useRates } from './lib/rates';
@@ -8,6 +8,8 @@ import { startAutoSync, hasPendingSync, syncSoon } from './cloud/autosync';
 import { autoBackupIfDue } from './cloud/cloud';
 import { useLang, translate, resolveLang } from './i18n';
 import { checkWhisperCrash } from './lib/whisper';
+import { DialogHost } from './components/Dialogs';
+import { useEvalContext } from './lib/calcContext';
 import { toast } from './store/ui';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
@@ -17,7 +19,7 @@ import { Support } from './components/Support';
 import { CommandPalette, Home, Keypad, Templates, Trash } from './components/Pages';
 import { Toasts } from './components/ui';
 import { runUpdateCheck } from './components/UpdateBanner';
-import { RemindersPage, amountText } from './components/Reminders';
+import { RemindersPage, amountText, payReminder } from './components/Reminders';
 import { PermissionsFirstRun } from './components/Permissions';
 import { LockScreen } from './components/Lock';
 import { startReminderLoop } from './lib/reminders';
@@ -64,6 +66,28 @@ export function App() {
       return () => mq.removeEventListener('change', h);
     }
   }, [settings.theme, settings.customTheme, settings.synColors, settings.font, settings.fontSize, lang]);
+
+  // toque numa notificação do navegador: "Marcar como pago/recebido" ou abrir os lembretes
+  const ectx = useEvalContext();
+  const ectxRef = useRef(ectx);
+  ectxRef.current = ectx;
+  useEffect(() => {
+    const handle = (d?: { key?: string; action?: string }) => {
+      const r = d?.key ? useData.getState().reminders.find((x) => d.key!.startsWith(x.id + ':')) : undefined;
+      if (d?.action === 'paid' && r) {
+        const lg = resolveLang(useData.getState().settings.lang);
+        payReminder(r, ectxRef.current, formatOptions(ectxRef.current), ((k: string, v?: Record<string, string | number>) => translate(lg, k as never, v)) as never);
+      } else useUi.getState().go({ kind: 'reminders' });
+    };
+    const fromSw = (e: MessageEvent) => e.data?.type === 'gcp-notification' && handle(e.data);
+    const fromPage = (e: Event) => handle((e as CustomEvent).detail);
+    navigator.serviceWorker?.addEventListener('message', fromSw);
+    window.addEventListener('gcp-notification', fromPage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', fromSw);
+      window.removeEventListener('gcp-notification', fromPage);
+    };
+  }, []);
 
   // o app fechou carregando a transcrição offline no celular? desliga neste aparelho e avisa
   useEffect(() => {
@@ -165,6 +189,7 @@ export function App() {
           {view.kind === 'reminders' && <RemindersPage />}
         </div>
         <Keypad />
+        <DialogHost />
       </main>
       <Support />
       <PermissionsFirstRun />

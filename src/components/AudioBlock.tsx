@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { AudioLines, Check, Mic, Pencil, Trash2 } from 'lucide-react';
 import type { Block } from '../lib/types';
 import { useLang, useT, LOCALES } from '../i18n';
+import { askConfirm } from './Dialogs';
 
 type AudioB = Extract<Block, { type: 'audio' }>;
 
@@ -50,8 +51,8 @@ export function AudioBlock({ block, onTranscribe, onChange, onRemove }: { block:
         <button
           className="icon-btn danger"
           title={t('voice.deleteMemo')}
-          onClick={() => {
-            if (confirm(t('voice.confirmDelete'))) onRemove();
+          onClick={async () => {
+            if (await askConfirm({ message: t('voice.confirmDelete'), danger: true, ok: t('voice.deleteMemo') })) onRemove();
           }}
         >
           <Trash2 size={15} />

@@ -7,6 +7,7 @@ import { isMobile, saveBinaryFile } from '../lib/platform';
 import { toast } from '../store/ui';
 import { useLang, useT, LOCALES, type TKey } from '../i18n';
 import { Modal } from './ui';
+import { askConfirm } from './Dialogs';
 
 /** Câmera ou arquivo (no computador vai direto para os arquivos). */
 export async function attachFlow(camera: boolean | undefined, line: string | undefined, onAdd: (a: Attachment[]) => void, t: (k: TKey, v?: Record<string, string | number>) => string) {
@@ -93,8 +94,8 @@ export function ReceiptViewer({ items, index, labelOf, onIndex, onDelete, onClos
           </button>
           <button
             className="btn small danger-text"
-            onClick={() => {
-              if (!confirm(t('att.confirmDelete'))) return;
+            onClick={async () => {
+              if (!(await askConfirm({ message: t('att.confirmDelete'), danger: true, ok: t('common.delete') }))) return;
               onDelete(a);
               if (items.length <= 1) onClose();
               else onIndex(Math.max(0, index - 1));

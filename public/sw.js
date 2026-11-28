@@ -1,6 +1,6 @@
 /* GCP-Calc na web (iPhone, iPad e navegadores): funciona offline depois da primeira visita.
  * Cache dos arquivos do próprio app (mesma origem); cotações e IA continuam pela rede. */
-const CACHE = 'gcp-calc-v1';
+const CACHE = 'gcp-calc-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
@@ -38,5 +38,21 @@ self.addEventListener('fetch', (e) => {
           return r;
         }),
     ),
+  );
+});
+
+// notificações: tocar abre o app; "Marcar como pago" avisa o app aberto (ou abre e avisa)
+self.addEventListener('notificationclick', (e) => {
+  const n = e.notification;
+  const data = n.data || {};
+  n.close();
+  e.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      let c = all.find((x) => x.url.startsWith(self.registration.scope));
+      if (c) await c.focus();
+      else c = await self.clients.openWindow(data.url || self.registration.scope);
+      if (c) c.postMessage({ type: 'gcp-notification', key: data.key, action: e.action || 'open' });
+    })(),
   );
 });

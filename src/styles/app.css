@@ -5041,3 +5041,13 @@ html {
 .sync-warn > span { flex: 1; min-width: 180px; }
 .input.need { border-color: var(--warn, #f59e0b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn, #f59e0b) 22%, transparent); }
 .icon-btn.sync-need-pass { color: var(--warn, #f59e0b); }
+
+/* janelas de confirmação do app (no lugar do confirm/prompt do navegador) */
+.modal.dlg { max-width: 440px; }
+.dlg-body { display: flex; gap: 14px; align-items: flex-start; padding: 4px 2px 14px; }
+.dlg-ico { flex: none; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+.dlg-body.danger .dlg-ico { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.dlg-text { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dlg-text h3 { margin: 0; font-size: 17px; }
+.dlg-text p { margin: 0; font-size: 14.5px; line-height: 1.5; color: color-mix(in srgb, var(--text) 85%, var(--muted)); }
+.dlg-actions { padding-top: 4px; }

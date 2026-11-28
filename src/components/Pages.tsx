@@ -15,6 +15,7 @@ import type { Block, UserTemplate } from '../lib/types';
 import { blocksForTemplate } from '../lib/templateShare';
 import { EditTemplateModal, ImportTemplateModal, TemplateActions } from './TemplateDialogs';
 import { FileUp } from 'lucide-react';
+import { askConfirm } from './Dialogs';
 
 export function useCreateFromTemplate() {
   const lang = useLang();
@@ -239,7 +240,7 @@ export function Trash() {
             <button className="btn sm" onClick={() => restoreNote(n.id)}>
               <RotateCcw size={14} /> {t('trash.restore')}
             </button>
-            <button className="btn sm danger" onClick={() => confirm(t('trash.purgeConfirm')) && purgeNote(n.id)}>
+            <button className="btn sm danger" onClick={async () => (await askConfirm({ message: t('trash.purgeConfirm'), danger: true })) && purgeNote(n.id)}>
               <Trash2 size={14} /> {t('trash.purge')}
             </button>
           </div>

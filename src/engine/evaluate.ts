@@ -6,6 +6,7 @@
  * interpretado: números com separadores do idioma, porcentagens, unidades,
  * moedas, tags personalizadas, variáveis, funções, datas e totais.
  */
+import { matchNumberWords } from './numwords';
 import { classifyTerm } from './vocab';
 import { findUnit, fold, unitById, MAX_UNIT_WORDS, type Unit } from './units';
 import { findCurrency, SYMBOLS, MAX_CURRENCY_WORDS } from './currencies';
@@ -27,7 +28,7 @@ import {
 
 type Kw =
   | { k: 'conv' }
-  | { k: 'of' }
+  | { k: 'of'; div?: boolean }
   | { k: 'off' }
   | { k: 'on' }
   | { k: 'pctword' }
@@ -43,7 +44,9 @@ type Op = '+' | '-' | '*' | '/' | '^' | 'mod';
 const KW: Record<string, Kw> = {};
 const kw = (names: string[], v: Kw) => names.forEach((n) => (KW[n] = v));
 kw(['in', 'to', 'as', 'into', 'em', 'para', 'en', 'a', 'como', 'in terms of'], { k: 'conv' });
-kw(['of', 'de', 'del', 'da', 'do', 'sobre'], { k: 'of' });
+kw(['of', 'de', 'del', 'da', 'do'], { k: 'of' });
+// "20% sobre 300" (porcentagem) e "15 sobre 3" (divisão)
+kw(['sobre'], { k: 'of', div: true });
 kw(['off', 'desconto', 'de desconto', 'descuento', 'de descuento'], { k: 'off' });
 kw(['on', 'acrescimo', 'de acrescimo', 'a mais', 'recargo'], { k: 'on' });
 kw(['percent', 'por cento', 'porcento', 'por ciento', 'porciento', 'pct'], { k: 'pctword' });
@@ -61,10 +64,10 @@ kw(['hex', 'hexadecimal'], { k: 'fmt', name: 'hex' });
 kw(['bin', 'binary', 'binario'], { k: 'fmt', name: 'bin' });
 kw(['oct', 'octal'], { k: 'fmt', name: 'oct' });
 kw(['sci', 'scientific', 'cientifica', 'cientifico', 'notacao cientifica', 'notacion cientifica'], { k: 'fmt', name: 'sci' });
-kw(['plus', 'mais', 'with', 'com', 'and', 'con'], { k: 'op', op: '+' });
-kw(['minus', 'menos', 'without', 'sem'], { k: 'op', op: '-' });
-kw(['times', 'vezes', 'multiplied by', 'multiplicado por', 'multiplicados por', 'veces'], { k: 'op', op: '*' });
-kw(['divided by', 'dividido por', 'divididos por', 'over', 'dividido entre', 'entre'], { k: 'op', op: '/' });
+kw(['plus', 'mais', 'with', 'com', 'and', 'con', 'mas', 'somado a', 'somado com', 'somada a', 'adicionado a', 'added to', 'sumado a'], { k: 'op', op: '+' });
+kw(['minus', 'menos', 'without', 'sem', 'tirando', 'subtraido de', 'subtraindo', 'descontando', 'less'], { k: 'op', op: '-' });
+kw(['times', 'vezes', 'vez', 'multiplied by', 'multiplicado por', 'multiplicados por', 'multiplicada por', 'multiplicadas por', 'multiplicar por', 'veces', 'vece', 'multiplicado'], { k: 'op', op: '*' });
+kw(['divided by', 'dividido por', 'divididos por', 'dividida por', 'divididas por', 'dividido pelo', 'dividido pela', 'dividido em', 'dividida em', 'divido por', 'dividir por', 'over', 'dividido entre', 'dividida entre', 'entre', 'split by', 'divided into', 'dividido para'], { k: 'op', op: '/' });
 kw(['mod', 'modulo', 'resto de'], { k: 'op', op: 'mod' });
 kw(['elevado a', 'elevado ao', 'to the power of', 'pow'], { k: 'op', op: '^' });
 kw(['thousand', 'thousands', 'mil'], { k: 'scale', v: 1e3 });
@@ -125,12 +128,19 @@ type Tok =
 interface Raw {
   t: 'ws' | 'num' | 'word' | 'sym' | 'op' | 'other' | 'date' | 'tag' | 'cmt';
   s: string;
+  /** valor já conhecido (número por extenso: "seis", "vinte e sete") */
+  v?: number;
 }
 
 const WORD_RE = /^[\p{L}_°º][\p{L}\p{N}_]*(?:[²³])?/u;
 
 /** um emoji completo: bandeiras, famílias com ZWJ, tons de pele, variações e teclas (1️⃣) */
 const EMOJI_CLUSTER = /^(?:[0-9#*]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Extended_Pictographic}\u2190-\u2BFF\u2600-\u27BF](?:[\uFE0F\u20E3\p{Emoji_Modifier}\u{E0020}-\u{E007F}]|\u200D[\p{Extended_Pictographic}\u2600-\u27BF])*)/u;
+
+const lastSolid = (a: Raw[]) => {
+  for (let i = a.length - 1; i >= 0; i--) if (a[i].t !== 'ws') return a[i];
+  return undefined;
+};
 
 function rawLex(line: string, ctx: EvalContext): Raw[] {
   const out: Raw[] = [];
@@ -139,6 +149,7 @@ function rawLex(line: string, ctx: EvalContext): Raw[] {
   while (i < line.length) {
     const rest = line.slice(i);
     let m: RegExpMatchArray | null;
+    let nw: ReturnType<typeof matchNumberWords>;
     if ((m = rest.match(/^\s+/))) out.push({ t: 'ws', s: m[0] });
     else if ((m = rest.match(/^[0-9#*]\uFE0F?\u20E3/))) out.push({ t: 'other', s: m[0] });
     else if (rest.startsWith('//')) out.push({ t: 'cmt', s: rest });
@@ -172,7 +183,10 @@ function rawLex(line: string, ctx: EvalContext): Raw[] {
       out.push({ t: 'sym', s });
     } else if (rest[0] === '$') out.push({ t: 'sym', s: '$' });
     else if ((m = rest.match(/^(\*\*|->|→|=>|[+\-−–*×·⋅\/÷^%!()=;,²³])/))) out.push({ t: 'op', s: m[0] });
-    else if ((m = rest.match(WORD_RE))) {
+    else if ((nw = /^\p{L}/u.test(rest) ? matchNumberWords(rest, ctx.lang, lastSolid(out)?.t === 'num', line.slice(0, i)) : null)) {
+      // número por extenso: "seis dividido por 2", "vinte e sete mais três"
+      out.push({ t: 'num', s: nw.text, v: nw.value });
+    } else if ((m = rest.match(WORD_RE))) {
       // unidades compostas com barra: km/h, m/s, mb/s
       const slash = rest.match(/^[\p{L}]+\/[\p{L}]+/u);
       if (slash && findUnit(slash[0])) out.push({ t: 'word', s: slash[0] });
@@ -301,7 +315,7 @@ function resolve(raws: Raw[], ctx: EvalContext, scope: Scope): { toks: Tok[]; se
         seg(r.s, 'cmt');
         continue;
       case 'num': {
-        toks.push({ k: 'num', v: parseNumber(r.s, ctx.decimal), fmt: /^0x/i.test(r.s) ? 'hex' : /^0b/i.test(r.s) ? 'bin' : undefined });
+        toks.push({ k: 'num', v: r.v ?? parseNumber(r.s, ctx.decimal), fmt: /^0x/i.test(r.s) ? 'hex' : /^0b/i.test(r.s) ? 'bin' : undefined });
         seg(r.s, 'num');
         continue;
       }
@@ -485,7 +499,8 @@ function tidy(toks: Tok[]): Tok[] {
         if (!prev || !ENDS_VALUE.has(prev.k) || !next || !STARTS_TARGET.has(next.k)) continue;
       }
       if (t.k === 'of') {
-        const okPrev = prev && (prev.k === 'pct' || prev.k === 'pctword' || prev.k === 'func');
+        // frações também: "2/3 de 90", "0,5 de 90" (o parser só usa quando o número é menor que 1)
+        const okPrev = prev && (prev.k === 'pct' || prev.k === 'pctword' || prev.k === 'func' || ((prev.k === 'num' || prev.k === 'rp') && next?.k === 'num'));
         if (!okPrev || !next) continue;
       }
       if ((t.k === 'off' || t.k === 'on') && !(prev && (prev.k === 'pct' || prev.k === 'pctword'))) continue;
@@ -636,10 +651,15 @@ class Parser {
           if (r.n === 0) throw new CalcError('div0');
           v = { ...v, n: ((v.n % r.n) + r.n) % r.n };
         }
-      } else if (p?.k === 'of' && v.pct) {
+      } else if (p?.k === 'of' && p.div && !v.pct) {
+        // "15 sobre 3": divisão
+        this.i++;
+        v = div(v, this.unary(), this.ctx);
+      } else if (p?.k === 'of' && (v.pct || (!v.unit && !v.date && v.n > 0 && v.n < 1))) {
+        // "20% de 300" e também frações: "2/3 de 90", "0,5 de 90", "dois terços de 90", "metade de 90"
         this.i++;
         const r = this.unary();
-        v = mul(v, r, this.ctx);
+        v = mul({ ...v, pct: false }, r, this.ctx);
       } else if ((p?.k === 'off' || p?.k === 'on') && v.pct) {
         this.i++;
         const r = this.unary();
@@ -1397,7 +1417,11 @@ export function evaluateLine(line: string, ctx: EvalContext, st: DocState): Line
       const cand = stripEmoji(im[1]).trim();
       const first = fold(cand.split(/\s+/)[0]);
       const known = KW[first] || EXACT[cand.toLowerCase()] || FUNCS.has(first) || findUnit(cand) || findCurrency(cand) || st.vars.has(fold(cand)) || st.sections.has(fold(cand)) || /^(total|subtotal|soma|saldo|sobra|media|média|maior|menor|hoje|amanha|ontem)$/i.test(first);
-      if (!known && cand.length >= 2) label = cand;
+      // "seis dividido por 2", "três vezes 4": é conta, não rótulo
+      const isMath =
+        /(^|\s)(mais|menos|vezes|vez|dividid\p{L}*|multiplicad\p{L}*|elevado|plus|minus|times|divided|multiplied|over|veces|somad\p{L}*|tirando|por cento|percent)(\s|$)/iu.test(cand) ||
+        cand.split(/\s+/).some((w) => !!matchNumberWords(w, ctx.lang, false, ''));
+      if (!known && !isMath && cand.length >= 2) label = cand;
     }
   }
   // "Luz: R$ 150 vence 10/12", "Aluguel: R$ 1.800 vence dia 5": data de vencimento (vira lembrete)

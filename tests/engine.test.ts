@@ -598,3 +598,36 @@ describe('subtotal por grupo e atalhos de totais', () => {
     expect([r[3], r[7], r[9], r[10], r[11], r[12], r[13], r[14], r[15]]).toEqual(['R$ 3.500,00', 'R$ 1.100,00', 'R$ 500,00', 'R$ 1.600,00', 'R$ 1.600,00', 'R$ 1.600,00', 'R$ 3.500,00', 'R$ 1.900,00', 'R$ 1.900,00']);
   });
 });
+
+describe('números por extenso e operações em linguagem natural', () => {
+  const v = (l: string, o: Partial<EvalContext> = {}) => evaluateDocument(l, defaultContext({ rates, now: 0, ...o })).lines[0];
+  it('português: as quatro operações, misturando números e palavras', () => {
+    const cases: [string, number][] = [
+      ['Seis dividido por 2', 3], ['seis dividido por dois', 3], ['6 dividido por dois', 3], ['doze dividido em 3', 4],
+      ['vinte e sete mais 3', 30], ['10 mais cinco', 15], ['um mais um', 2], ['dois mil e trezentos mais 200', 2500],
+      ['cem menos 1', 99], ['vinte menos três', 17], ['três vezes 4', 12], ['3 vezes quatro', 12],
+      ['dez multiplicado por 2,5', 25], ['cento e vinte vezes dois', 240], ['mil e quinhentos dividido por 3', 500],
+      ['quinze sobre 3', 5], ['quatro elevado a dois', 16], ['vinte por cento de 300', 60], ['20% sobre 300', 60],
+      ['dois terços de 90', 60], ['2/3 de 90', 60], ['metade de 90', 45], ['meio', 0.5],
+    ];
+    for (const [l, n] of cases) {
+      const r = v(l);
+      expect(r.value?.n, l).toBeCloseTo(n);
+      expect(r.label, l).toBeUndefined();
+    }
+  });
+  it('não confunde artigo nem rótulo', () => {
+    expect(v('Paguei um café de 5').label).toBe('Paguei um café');
+    expect(v('Seis: 6').label).toBe('Seis');
+    expect(one('10 mil reais')).toBe('R$ 10.000,00');
+    expect(one('R$ 100 dividido por quatro')).toBe('R$ 25,00');
+  });
+  it('inglês e espanhol', () => {
+    expect(v('six divided by two', { lang: 'en', decimal: 'dot' }).value?.n).toBe(3);
+    expect(v('one hundred and five minus 5', { lang: 'en', decimal: 'dot' }).value?.n).toBe(100);
+    expect(v('twenty percent of 300', { lang: 'en', decimal: 'dot' }).value?.n).toBe(60);
+    expect(v('seis dividido por dos', { lang: 'es' }).value?.n).toBe(3);
+    expect(v('veintitrés menos tres', { lang: 'es' }).value?.n).toBe(20);
+    expect(v('cien por ciento de 40', { lang: 'es' }).value?.n).toBe(40);
+  });
+});

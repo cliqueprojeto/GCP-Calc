@@ -125,7 +125,13 @@ export async function runReminders(amountOf: (r: Reminder) => string | undefined
   }
   if (fresh.length) {
     st.addInbox(fresh);
-    for (const f of fresh.filter((x) => !x.read)) await systemNotify(f.title, f.body, f.id);
+    for (const f of fresh.filter((x) => !x.read)) {
+      const r = st.reminders.find((x) => x.id === f.reminderId);
+      await systemNotify(f.title, f.body, f.id, {
+        kind: f.kind as 'before' | 'due' | 'overdue',
+        actions: { paid: translate(lang, r && isIncome(r) ? 'rem.markReceived' : 'rem.markPaid'), open: translate(lang, 'rem.openApp') },
+      });
+    }
   }
   await scheduleSystem(future);
 }

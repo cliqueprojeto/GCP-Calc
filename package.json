@@ -1,7 +1,7 @@
 {
   "name": "gcp-calc",
   "private": true,
-  "version": "1.11.3",
+  "version": "1.11.4",
   "description": "GCP-Calc — calculadora em notas: cálculos em linguagem natural, moedas ao vivo, unidades, IA assistiva e sincronização criptografada.",
   "author": "Bruno Albertini | Gestão Cultural Pro",
   "license": "GPL-3.0-or-later",
@@ -49,6 +49,8 @@
     "react-dom": "^18.3.1",
     "sql.js": "1.13.0",
     "sucrase": "3.35.0",
+    "trystero": "^0.21.8",
+    "yjs": "^13.6.33",
     "zustand": "^5.1.0"
   },
   "devDependencies": {
@@ -61,8 +63,10 @@
     "@types/react-dom": "^18.3.7",
     "@types/sql.js": "1.4.9",
     "@vitejs/plugin-react": "^4.7.0",
+    "bittorrent-tracker": "^11.2.3",
     "typescript": "^7.0.2",
     "vite": "^6.4.6",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "ws": "^8.23.1"
   }
 }

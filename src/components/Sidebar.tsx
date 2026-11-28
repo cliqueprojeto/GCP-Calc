@@ -10,6 +10,7 @@ import { Logo } from './Logo';
 import { useUnread } from './Reminders';
 import { statusOf } from '../lib/reminders';
 import { IconPicker } from './IconPicker';
+import { askConfirm } from './Dialogs';
 
 export const DEV_URL = 'https://gestaoculturalpro.com.br';
 
@@ -126,7 +127,7 @@ export function Sidebar() {
                     <button className="icon-btn xs" title={t('sidebar.rename')} onClick={() => setEditing(f.id)}>
                       <Pencil size={12} />
                     </button>
-                    <button className="icon-btn xs" title={t('sidebar.deleteFolder')} onClick={() => confirm(t('sidebar.deleteFolderConfirm')) && deleteFolder(f.id)}>
+                    <button className="icon-btn xs" title={t('sidebar.deleteFolder')} onClick={async () => (await askConfirm({ message: t('sidebar.deleteFolderConfirm'), danger: true, ok: t('sidebar.deleteFolder') })) && deleteFolder(f.id)}>
                       <Trash2 size={12} />
                     </button>
                   </div>
