@@ -631,3 +631,26 @@ describe('números por extenso e operações em linguagem natural', () => {
     expect(v('cien por ciento de 40', { lang: 'es' }).value?.n).toBe(40);
   });
 });
+
+describe('ditado num bloco sem seções', () => {
+  it('cria #Receitas/#Despesas com os itens e o total', async () => {
+    const { insertIntoSections } = await import('../src/lib/smartInsert');
+    const { dictationItems } = await import('../src/lib/dictation');
+    const ctx = defaultContext({ rates, now: 0 });
+    const items = dictationItems('recebi o salário de 3000 reais, comprei arroz por 27,90 e paguei a luz 150', 'pt', { decimal: 'comma', symbol: 'R$' });
+    const r = insertIntoSections('', [], items);
+    expect(r.text.split('\n')).toEqual(['#Receitas', 'Salário: R$ 3.000', 'Total #Receitas', '', '#Despesas', 'Arroz: R$ 27,90', 'Luz: R$ 150', 'Total #Despesas']);
+    const res = run(r.text);
+    expect(res[2]).toBe('R$ 3.000,00');
+    expect(res[7]).toBe('R$ 177,90');
+    // com nomes que a nota já usa
+    const r2 = insertIntoSections('Anotações do mês', evaluateDocument('Anotações do mês', ctx).lines, items, { income: 'Ganhos', expense: 'Gastos' });
+    expect(r2.text).toContain('#Gastos\nArroz: R$ 27,90\nLuz: R$ 150\nTotal #Gastos');
+    // seção que já existe recebe os itens (sem criar outra)
+    const base = '#Despesas\nAluguel: R$ 1.000\nTotal #Despesas';
+    const r3 = insertIntoSections(base, evaluateDocument(base, ctx).lines, items);
+    expect(r3.text.match(/#Despesas/g)?.length).toBe(2);
+    expect(r3.text).toContain('Aluguel: R$ 1.000\nArroz: R$ 27,90\nLuz: R$ 150\nTotal #Despesas');
+    expect(r3.text).toContain('#Receitas\nSalário: R$ 3.000\nTotal #Receitas');
+  });
+});

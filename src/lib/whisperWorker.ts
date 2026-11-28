@@ -7,12 +7,14 @@ import { env, pipeline, type AutomaticSpeechRecognitionPipeline } from '@hugging
 
 let asr: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
 
-self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; task: 'transcribe' | 'translate'; base: string; warm?: boolean; model?: string }>) => {
+self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; task: 'transcribe' | 'translate'; base: string; warm?: boolean; model?: string; remote?: boolean }>) => {
   const { audio, lang, task, base, warm } = e.data;
   const model = e.data.model || 'onnx-community/whisper-base';
   try {
     if (!asr) {
-      env.allowRemoteModels = false;
+      // modelo preciso: vem do Hugging Face na primeira vez e fica guardado no cache (offline depois)
+      env.allowRemoteModels = !!e.data.remote;
+      env.useBrowserCache = true;
       env.allowLocalModels = true;
       // caminho relativo ao site (não URL completa): é o que a biblioteca trata como "modelo local"
       env.localModelPath = new URL(base).pathname + 'runtimes/whisper/';
@@ -43,7 +45,7 @@ self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; ta
       return;
     }
     postMessage({ type: 'status', s: 'working' });
-    const out = (await run(audio, { language: lang, task, chunk_length_s: 30, stride_length_s: 5 } as never)) as { text: string } | { text: string }[];
+    const out = (await run(audio, { language: lang, task, chunk_length_s: 30, stride_length_s: 5, no_repeat_ngram_size: 4 } as never)) as { text: string } | { text: string }[];
     const text = (Array.isArray(out) ? out.map((x) => x.text).join(' ') : out.text).trim();
     postMessage({ type: 'done', text });
   } catch (err) {

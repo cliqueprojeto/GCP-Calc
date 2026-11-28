@@ -201,7 +201,11 @@ export function NoteView({ note }: { note: Note }) {
     if (target && target.type === 'calc' && r.lines.length) {
       const cur = (useData.getState().notes.find((x) => x.id === note.id)?.blocks.find((x) => x.id === target!.id) as { text: string } | undefined)?.text ?? '';
       // cada item vai para a seção que já existe (#Despesas, #Receitas…), na última linha antes do total
-      const res = insertIntoSections(cur, ev.perBlock.get(target.id)?.results ?? [], r.items.length ? r.items : r.lines.map((line) => ({ line })));
+      const secNames = {
+        income: knownNames.sections.find((x) => x.tone === 'income')?.name ?? t('rem.secIncome'),
+        expense: knownNames.sections.find((x) => x.tone === 'expense')?.name ?? t('rem.secExpense'),
+      };
+      const res = insertIntoSections(cur, ev.perBlock.get(target.id)?.results ?? [], r.items.length ? r.items : r.lines.map((line) => ({ line })), secNames);
       updateBlock(note.id, target.id, { text: res.text });
       placedMsg = res.placed.map((p) => `#${p.name} +${p.n}`).join(' · ');
       if (res.skipped) placedMsg = (placedMsg ? placedMsg + ' · ' : '') + t('voice.skipped', { n: res.skipped });

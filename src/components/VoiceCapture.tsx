@@ -3,7 +3,7 @@
  * com prévia, para inserir no bloco — e, se quiser, organizar e guardar o áudio na nota.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ListTree, Loader2, Mic, Pause, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { Check, ListTree, Loader2, Mic, Pause, RefreshCw, Square, Trash2, Lightbulb } from 'lucide-react';
 import { Modal, Toggle } from './ui';
 import { evaluateDocument, newDocState } from '../engine/evaluate';
 import { currencySymbol, formatValue, type EvalContext, type FormatOptions } from '../engine/value';
@@ -11,7 +11,7 @@ import { audioProviders, blobToDataUrl, canLiveDictate, canRecord, MAX_RECORD_MS
 import { dictationGoal, dictationItems } from '../lib/dictation';
 import { classifyTerm, type Kind } from '../engine/vocab';
 import type { KnownNames } from '../lib/voiceFormulas';
-import { enableOfflineHere, offlineAvailable, offlineDisabledHere, offlineReady, preloadOffline, transcribeOffline, warmUp } from '../lib/whisper';
+import { enableOfflineHere, offlineAvailable, offlineDisabledHere, offlineReady, preciseReady, preloadOffline, transcribeOffline, warmUp } from '../lib/whisper';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { nextStep, orderedProviders } from '../ai/assist';
@@ -243,6 +243,18 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
           <p className="muted small">
             {offline ? t('voice.offlineOk') : canLiveDictate() ? t('voice.liveOk') : audioAi.length ? t('voice.aiOk', { name: audioAi[0].name }) : t('voice.noAi')}
           </p>
+          {offline && !audioAi.length && (
+            // dica: o modelo offline sozinho é simples; com uma IA configurada fica bem mais preciso
+            <div className="voice-tip">
+              <Lightbulb size={15} />
+              <span>
+                {preciseReady() ? t('voice.tipPrecise') : t('voice.tipOffline')}{' '}
+                <button className="link" onClick={() => (useUi.getState().go({ kind: 'settings', section: 'ai' }), onClose())}>
+                  {t('voice.tipAction')}
+                </button>
+              </span>
+            </div>
+          )}
           {offline && ctx.lang !== 'en' && <Toggle checked={translate} onChange={setTranslate} label={t('voice.translate')} />}
           {!offline && !audioAi.length && !canLiveDictate() && (
             <button className="link" onClick={() => (useUi.getState().go({ kind: 'settings', section: 'ai' }), onClose())}>

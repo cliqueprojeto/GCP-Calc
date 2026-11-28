@@ -45,6 +45,7 @@ import { useRates } from '../lib/rates';
 import { PROVIDERS, providerMeta, testProvider, guessProvider } from '../ai/providers';
 import { APP_VERSION, isMobile, isTauri, openUrl, pickTextFile, platformInfo, saveTextFile, uid } from '../lib/platform';
 import { resetMicPosition } from './VoiceFab';
+import { downloadPrecise, preciseReady, preciseSupported, removePrecise } from '../lib/whisper';
 import { DriveGuide, parseGoogleClientJson } from './DriveGuide';
 import { CollabSettings } from './Collab';
 import { RELEASES_URL, REPO, canAutoInstall, downloadAndInstall } from '../lib/updater';
@@ -483,6 +484,54 @@ function CurrencySettings() {
 
 // --------------------------------------------------------------------- IA
 
+function OfflineVoiceCard() {
+  const t = useT();
+  const lang = useLang();
+  const [p, setP] = useState<number | null>(null);
+  const [, force] = useState(0);
+  const ready = preciseReady();
+  const supported = preciseSupported();
+  const get = async () => {
+    setP(0);
+    try {
+      await downloadPrecise(lang, (x) => setP(x));
+      toast(t('voice.preciseDone'), 'ok');
+    } catch (e) {
+      toast(t('voice.preciseFail', { err: String((e as Error)?.message ?? e).slice(0, 120) }), 'error');
+    } finally {
+      setP(null);
+      force((x) => x + 1);
+    }
+  };
+  return (
+    <Card icon={<Mic size={18} />} title={t('voice.offlineCard')} subtitle={t('voice.offlineCardSub')}>
+      <div className="row-between">
+        <span>
+          <b>{ready ? t('voice.modelPrecise') : t('voice.modelBuiltin')}</b>
+          <br />
+          <small className="muted">{ready ? t('voice.modelPreciseHint') : t('voice.modelBuiltinHint')}</small>
+        </span>
+        {ready ? (
+          <button className="btn sm danger-text" onClick={() => (removePrecise(), force((x) => x + 1))}>
+            {t('voice.preciseRemove')}
+          </button>
+        ) : (
+          <button className="btn sm primary grad" disabled={p !== null || !supported} onClick={get}>
+            {p !== null ? <Loader2 size={14} className="spin" /> : <Download size={14} />} {p !== null ? `${p}%` : t('voice.preciseGet')}
+          </button>
+        )}
+      </div>
+      {!supported && <p className="field-hint">{t('voice.preciseUnsupported')}</p>}
+      {p !== null && (
+        <div className="pvr-meter" style={{ color: 'var(--accent)' }}>
+          <span style={{ width: `${p}%` }} />
+        </div>
+      )}
+      <p className="field-hint">{t('voice.offlineVsAi')}</p>
+    </Card>
+  );
+}
+
 function AiSettings() {
   const t = useT();
   const { settings, setSettings } = useData();
@@ -505,6 +554,7 @@ function AiSettings() {
   };
   return (
     <>
+      <OfflineVoiceCard />
       <Card
         icon={<Bot size={18} />}
         title={t('ai.title')}

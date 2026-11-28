@@ -36,7 +36,18 @@ export function normLine(l: string): string {
     .trim();
 }
 
-export function insertIntoSections(text: string, results: LineResult[], incoming: Incoming[]): { text: string; placed: { name: string; n: number }[]; skipped: number } {
+/** nomes das seções a criar quando o bloco ainda não tem a do tipo (usa os que a nota já usa) */
+export interface SectionNames {
+  income: string;
+  expense: string;
+}
+
+export function insertIntoSections(
+  text: string,
+  results: LineResult[],
+  incoming: Incoming[],
+  names: SectionNames = { income: 'Receitas', expense: 'Despesas' },
+): { text: string; placed: { name: string; n: number }[]; skipped: number } {
   const lines = text.split('\n');
   // o que já está no bloco não entra de novo (a IA às vezes devolve a nota inteira)
   const existing = new Set(lines.map(normLine).filter(Boolean));
@@ -69,6 +80,7 @@ export function insertIntoSections(text: string, results: LineResult[], incoming
   // limpa o que veio: títulos e totais que já existem no bloco saem; itens herdam o tipo do título
   const items: Incoming[] = [];
   let headerTone: Kind | undefined;
+  const incomingHeads = new Set<Kind>();
   for (const it of incoming) {
     const l = it.line;
     if (!l.trim()) continue;
@@ -79,6 +91,7 @@ export function insertIntoSections(text: string, results: LineResult[], incoming
     const head = l.match(/^\s*#+\s*([^\n]*)$/);
     if (head) {
       headerTone = classifyTerm(head[1]);
+      if (headerTone) incomingHeads.add(headerTone);
       if (headerTone && has(headerTone)) continue;
       items.push({ line: l });
       continue;
@@ -90,15 +103,31 @@ export function insertIntoSections(text: string, results: LineResult[], incoming
 
   const bySec = new Map<Sec, string[]>();
   const rest: string[] = [];
+  // receitas/despesas sem seção no bloco: cria a seção (com os nomes que a nota já usa) e o total
+  const created = new Map<Kind, string[]>();
   for (const it of items) {
     const s = it.tone && !it.formula ? has(it.tone) : undefined;
     if (s) bySec.set(s, [...(bySec.get(s) ?? []), it.line]);
+    else if (it.tone && !it.formula && !incomingHeads.has(it.tone) && !/^\s*#/.test(it.line)) created.set(it.tone, [...(created.get(it.tone) ?? []), it.line]);
     else rest.push(it.line);
+  }
+  const newSecs: string[] = [];
+  for (const k of ['income', 'expense'] as Kind[]) {
+    const add = created.get(k);
+    if (!add?.length) continue;
+    const name = (k === 'income' ? names.income : names.expense).replace(/\s+/g, '');
+    if (newSecs.length || text.trim()) newSecs.push('');
+    newSecs.push(`#${name}`, ...add, `Total #${name}`);
   }
   // insere de baixo para cima para os índices continuarem valendo
   const order = [...bySec.entries()].sort((a, b) => b[0].after - a[0].after);
   for (const [s, add] of order) lines.splice(s.after + 1, 0, ...add);
   let out = lines.join('\n');
+  if (newSecs.length) out = out.replace(/\s+$/, '') + (out.trim() ? '\n' : '') + newSecs.join('\n');
   if (rest.length) out = out.replace(/\s+$/, '') + (out.trim() ? '\n' : '') + rest.join('\n');
-  return { text: out, placed: [...bySec.entries()].map(([s, a]) => ({ name: s.name, n: a.length })), skipped };
+  return {
+    text: out,
+    placed: [...[...bySec.entries()].map(([s, a]) => ({ name: s.name, n: a.length })), ...[...created.entries()].map(([k, a]) => ({ name: k === 'income' ? names.income : names.expense, n: a.length }))],
+    skipped,
+  };
 }

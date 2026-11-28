@@ -63,8 +63,17 @@ const lowMemory = () => {
  * memória) nos demais celulares ou depois que o "base" faltou memória neste aparelho.
  */
 const bigPhone = () => ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 0) >= 8 && ls.get(FORCE_TINY) !== '1';
-const MODELS = !isPhone || bigPhone() ? ['onnx-community/whisper-base', 'onnx-community/whisper-tiny'] : ['onnx-community/whisper-tiny', 'onnx-community/whisper-base'];
+const BUILTIN = !isPhone || bigPhone() ? ['onnx-community/whisper-base', 'onnx-community/whisper-tiny'] : ['onnx-community/whisper-tiny', 'onnx-community/whisper-base'];
+/** modelo "preciso" (Whisper small, ~250 MB): baixado uma vez, sob demanda, e guardado no aparelho */
+export const PRECISE = 'onnx-community/whisper-small';
+const PRECISE_KEY = 'gcp-calc:whisper-precise';
+export const preciseReady = () => ls.get(PRECISE_KEY) === 'ready';
+export const preciseWanted = () => ls.get(PRECISE_KEY) === 'ready' || ls.get(PRECISE_KEY) === 'local';
+/** aparelho aguenta o modelo preciso? (computador ou celular com 6 GB+) */
+export const preciseSupported = () => !isPhone || ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 0) >= 6;
+const MODELS = preciseWanted() && preciseSupported() ? [PRECISE, ...BUILTIN] : BUILTIN;
 let model = MODELS[0];
+export const currentModel = () => model;
 /** No celular o modelo só carrega quando for mesmo transcrever (não ao abrir a tela de voz). */
 export const preloadOffline = () => !isPhone;
 
@@ -74,6 +83,12 @@ export async function offlineAvailable(): Promise<boolean> {
   if (available !== null) return available;
   available = false;
   for (const m of MODELS) {
+    // o preciso vem da internet na primeira vez e fica no cache do aparelho
+    if (m === PRECISE && preciseReady()) {
+      model = m;
+      available = true;
+      break;
+    }
     try {
       const r = await fetch(base() + `runtimes/whisper/${m}/config.json`);
       // alguns servidores devolvem a página do app (HTML) para arquivos que não existem
@@ -114,7 +129,7 @@ export function warmUp(lang: Lang): Promise<void> {
       }
     };
     w.addEventListener('message', h);
-    w.postMessage({ warm: true, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: 'transcribe', base: base(), model });
+    w.postMessage({ warm: true, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: 'transcribe', base: base(), model, remote: model === PRECISE });
   });
   return warming;
 }
@@ -135,8 +150,48 @@ async function toPcm16k(blob: Blob): Promise<Float32Array> {
   return out.getChannelData(0);
 }
 
+/**
+ * Limpa o áudio antes do Whisper: tira o zumbido grave (filtro passa-altas ~80 Hz), corta o
+ * silêncio do começo e do fim e ajusta o volume. Ajuda bastante com microfone de celular.
+ */
+export function cleanAudio(x: Float32Array, sr = 16000): Float32Array {
+  // passa-altas de 1ª ordem
+  const rc = 1 / (2 * Math.PI * 80);
+  const a = rc / (rc + 1 / sr);
+  const y = new Float32Array(x.length);
+  let px = 0;
+  let py = 0;
+  for (let i = 0; i < x.length; i++) {
+    py = a * (py + x[i] - px);
+    px = x[i];
+    y[i] = py;
+  }
+  // corta silêncio nas pontas (janelas de 20 ms abaixo de -45 dB), deixando 0,3 s de folga
+  const win = Math.round(sr * 0.02);
+  const rms = (i: number) => {
+    let s = 0;
+    for (let j = i; j < Math.min(y.length, i + win); j++) s += y[j] * y[j];
+    return Math.sqrt(s / win);
+  };
+  let peak = 0;
+  for (let i = 0; i < y.length; i++) peak = Math.max(peak, Math.abs(y[i]));
+  if (peak < 1e-4) return y;
+  const thr = Math.max(0.0056 * peak, 0.003);
+  let start = 0;
+  while (start < y.length - win && rms(start) < thr) start += win;
+  let end = y.length;
+  while (end > start + win && rms(end - win) < thr) end -= win;
+  const pad = Math.round(sr * 0.3);
+  const cut = y.subarray(Math.max(0, start - pad), Math.min(y.length, end + pad));
+  // volume: pico em -1 dB
+  const g = 0.89 / peak;
+  const out = new Float32Array(cut.length);
+  for (let i = 0; i < cut.length; i++) out[i] = cut[i] * g;
+  return out;
+}
+
 export async function transcribeOffline(input: Blob | Float32Array, lang: Lang, opts: { translate?: boolean; onStatus?: (s: 'loading' | 'working' | number) => void } = {}): Promise<string> {
-  const audio = input instanceof Float32Array ? input : await toPcm16k(input);
+  const audio = cleanAudio(input instanceof Float32Array ? input : await toPcm16k(input));
   if (audio.length < 1600) throw new Error('áudio vazio');
   const w = getWorker();
   if (isPhone && !ready) ls.set(GUARD, model);
@@ -170,6 +225,41 @@ export async function transcribeOffline(input: Blob | Float32Array, lang: Lang, 
       reject(new Error(e.message || 'whisper'));
     };
     const copy = new Float32Array(audio);
-    w.postMessage({ audio: copy, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: opts.translate ? 'translate' : 'transcribe', base: base(), model }, [copy.buffer]);
+    w.postMessage({ audio: copy, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: opts.translate ? 'translate' : 'transcribe', base: base(), model, remote: model === PRECISE }, [copy.buffer]);
   });
+}
+
+/**
+ * Baixa o modelo preciso (Whisper small, ~250 MB) uma única vez. Depois funciona offline.
+ * onProgress recebe 0–100.
+ */
+export async function downloadPrecise(lang: Lang, onProgress: (p: number) => void): Promise<void> {
+  const w = new Worker(new URL('./whisperWorker.ts', import.meta.url), { type: 'module' });
+  await new Promise<void>((resolve, reject) => {
+    w.onmessage = (e) => {
+      if (e.data.type === 'progress') onProgress(e.data.p);
+      else if (e.data.type === 'ready') resolve();
+      else if (e.data.type === 'error') reject(new Error(e.data.s));
+    };
+    w.onerror = (e) => reject(new Error(e.message || 'whisper'));
+    w.postMessage({ warm: true, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: 'transcribe', base: base(), model: PRECISE, remote: true });
+  }).finally(() => w.terminate());
+  ls.set(PRECISE_KEY, 'ready');
+  // a próxima transcrição já usa o preciso
+  worker?.terminate();
+  worker = null;
+  ready = false;
+  warming = null;
+  available = null;
+  model = PRECISE;
+}
+export function removePrecise() {
+  ls.set(PRECISE_KEY, null);
+  worker?.terminate();
+  worker = null;
+  ready = false;
+  warming = null;
+  available = null;
+  model = BUILTIN[0];
+  void caches?.delete?.('transformers-cache');
 }

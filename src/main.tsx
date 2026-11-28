@@ -20,6 +20,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );
 
 // versão web (iPhone/iPad "Adicionar à Tela de Início" e navegadores): funciona offline
-if (import.meta.env.PROD && !('__TAURI_INTERNALS__' in window) && 'serviceWorker' in navigator && location.protocol === 'https:') {
+if (import.meta.env.PROD && !('__TAURI_INTERNALS__' in window) && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => void navigator.serviceWorker.register(new URL('sw.js', document.baseURI)).catch(() => undefined));
+  // pede ao navegador para não apagar as notas nem os modelos baixados quando faltar espaço
+  void navigator.storage?.persist?.().catch(() => undefined);
 }
