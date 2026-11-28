@@ -33,6 +33,7 @@ export function compareVersions(a: string, b: string): number {
 export function pickAsset(assets: { name: string; browser_download_url: string; size: number }[], os: string, arch: string, pkg: string) {
   let re: RegExp | null = null;
   if (os === 'android') re = /Android\.apk$/i;
+  else if (os === 'ios') re = /iOS\.ipa$/i;
   else if (os === 'windows') re = /Windows-x64-Setup\.exe$/i;
   else if (os === 'macos') re = arch === 'aarch64' ? /macOS-arm64\.dmg$/i : /macOS-x86_64\.dmg$/i;
   else if (os === 'linux') re = pkg === 'rpm' ? /\.x86_64\.rpm$/ : pkg === 'arch' ? /\.pkg\.tar\.zst$/ : /_amd64\.deb$/;

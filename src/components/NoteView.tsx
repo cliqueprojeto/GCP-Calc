@@ -38,6 +38,7 @@ import {
 import { SaveTemplateModal } from './TemplateDialogs';
 import { OrganizeModal } from './OrganizeModal';
 import { ImportModal } from './ImportModal';
+import { VoiceFab } from './VoiceFab';
 import { CompareBlock } from './CompareBlock';
 import { CodeBlock } from './CodeBlock';
 import { AttachChooser, ReceiptViewer, ReceiptsStrip, attachFlow } from './Receipts';
@@ -797,9 +798,7 @@ export function NoteView({ note }: { note: Note }) {
           onClose={() => setVoice(null)}
         />
       )}
-      <button className="voice-fab mobile-only" onClick={() => openVoice()} aria-label={t('voice.title')}>
-        <Mic size={22} />
-      </button>
+      <VoiceFab onTap={() => void openVoice()} label={t('voice.fabHint')} />
       {savingTpl && <SaveTemplateModal note={note} open onClose={() => setSavingTpl(false)} />}
       <IconPicker
         open={!!iconFor}

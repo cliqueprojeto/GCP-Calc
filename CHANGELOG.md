@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.11.0 — iPhone e iPad, teclado do sistema, microfone que você posiciona e Google Drive mais fácil
+
+### iPhone e iPad
+- **App web para iPhone e iPad**: abra <https://cliqueprojeto.github.io/GCP-Calc/> no Safari → **Compartilhar → Adicionar à Tela de Início**. Abre em tela cheia, funciona sem internet depois da primeira vez e se atualiza sozinho — sem App Store, sem conta da Apple, sem permissões especiais.
+- **App nativo (.ipa)** para quem prefere instalar: cada versão traz o arquivo para iPhone/iPad, que pode ser instalado com Sideloadly ou AltStore usando o seu Apple ID gratuito.
+- Guia completo em [docs/IOS.md](https://github.com/cliqueprojeto/GCP-Calc/blob/main/docs/IOS.md), incluindo como liberar o app no **Mac** na primeira abertura (em ** → Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**, ou com um comando no Terminal).
+
+### Android: teclado e microfone
+- O **teclado do sistema** (Google) passa a ser o padrão: o teclado de operadores do app não aparece mais por cima dele. Quem quiser pode religar em *Configurações → Geral → Teclado de operadores*.
+- O **botão do microfone** fica **acima do teclado** e pode ser **arrastado para qualquer lugar da tela** — a posição fica guardada. Para voltar ao canto: *Configurações → Geral → Restaurar posição do microfone*.
+
+### Google Drive mais fácil
+- Novo bloco **Configurar o Google Drive** logo abaixo do botão Conectar, mostrando se já está pronto.
+- **Importar JSON do Google**: escolha o arquivo `client_secret_….json` baixado do Google Cloud — nada de digitar Client ID e segredo (a digitação manual continua disponível).
+- **Guia passo a passo** dentro do app, com links diretos para cada tela do Google Cloud, as armadilhas mais comuns (tipo “App para computador”, usuários de teste, publicar o app) e soluções para cada erro. O mesmo guia está em [docs/CLOUD-SETUP.md](https://github.com/cliqueprojeto/GCP-Calc/blob/main/docs/CLOUD-SETUP.md).
+
 ## 1.10.0 — emojis perfeitos, ditado sem duplicar, lembretes que entram na conta e subtotais
 
 ### Emojis no editor

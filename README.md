@@ -49,7 +49,7 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 | 💻 | **Playground de código** | Bloco de código como um compilador online, dentro da nota: editor com cores, números de linha, indentação automática e pares · **▶ Rodar** (Ctrl+Enter) com terminal, entrada (stdin) e tempo de execução · **Python** (CPython completo), **JavaScript**, **TypeScript**, **SQL (SQLite)**, **HTML/CSS/JS** com prévia e **JSON** rodam embutidos — offline e no celular · no computador também **C, C++, Go, Rust, Java, Ruby, PHP, Bash e PowerShell** com os compiladores instalados · **lições de programação** prontas (estilo SoloLearn): explicação, código que roda e desafio |
 | 🧾 | **Comprovantes nas despesas** | Fotografe cupons e notas fiscais pela câmera do celular (ou anexe arquivos e PDFs no computador), vários de uma vez, ligados à linha da despesa · miniaturas sob o bloco, visualizador ampliado, baixar e excluir · entram no PDF, Word e PowerPoint |
 | 😀 | **Emojis com “/”** | Digite `/` numa linha para enfeitar com emojis e símbolos (busca em PT/EN/ES: `/mercado`, `/casa`, `/pago`) — `🛒 Arroz: R$ 27,90` continua sendo conta, variável e item da seção |
-| 🎙️ | **Anotações por voz** | Toque no microfone (no teclado de operadores ou na barra do bloco) e fale: “comprei arroz por 27,90, café 18 e paguei a luz 150” · **transcrição offline embutida (Whisper, código aberto)** — sem internet e sem chave de IA, com opção de traduzir para o inglês · ou pela IA que você já usa (OpenAI, Groq, Gemini, Mistral) · valores falados por extenso viram números (“vinte e sete e noventa” → R$ 27,90) · vira linhas de cálculo (`Arroz: R$ 27,90`…) com prévia, mesmo sem IA · inserir, ou inserir e organizar · o áudio pode ficar salvo na nota para ouvir e transcrever depois |
+| 🎙️ | **Anotações por voz** | Toque no microfone (botão flutuante que você arrasta para onde quiser, acima do teclado, ou na barra do bloco) e fale: “comprei arroz por 27,90, café 18 e paguei a luz 150” · **transcrição offline embutida (Whisper, código aberto)** — sem internet e sem chave de IA, com opção de traduzir para o inglês · ou pela IA que você já usa (OpenAI, Groq, Gemini, Mistral) · valores falados por extenso viram números (“vinte e sete e noventa” → R$ 27,90) · vira linhas de cálculo (`Arroz: R$ 27,90`…) com prévia, mesmo sem IA · inserir, ou inserir e organizar · o áudio pode ficar salvo na nota para ouvir e transcrever depois |
 | 🔔 | **Lembretes e notificações** | **A pagar ou a receber** (programe também recebimentos) · ao marcar **Pago** ou **Recebido**, o valor entra no bloco da nota ligada, na seção de despesas ou receitas, e conta nos totais e fórmulas · contas a vencer e compromissos com valor, data, hora e repetição (semanal, mensal, anual) · aviso N dias antes, no dia e se atrasar · **notificações do sistema** no Android (agendadas, chegam com o app fechado) e no Windows/macOS/Linux · central de notificações com **contador de não lidas**, lidas e **arquivadas** · calendário do mês, atrasados, próximos 7 dias e total a pagar · “marcar como pago” passa o lembrete para o próximo mês · escreva `Luz: R$ 150 vence 10/12` ou `Aluguel: R$ 1.800 vence dia 5` numa nota e crie o lembrete com um toque no sino |
 | 🗣️ | **Fórmulas por voz e por escrita natural** | Diga ou escreva o pedido e o app monta a fórmula com as seções e variáveis da nota: “faça o total de receitas menos despesas” → `Saldo: #Receitas - #Despesas` · “média dos gastos”, “maior gasto”, “dez por cento das receitas”, “aluguel vezes 12”, “quanto sobra em porcentagem” · funciona com sinônimos (“receitas” encontra `#Ganhos`) · numa linha digitada, o botão **ƒx** transforma a frase em fórmula |
 | 🎓 | **Tutor de programação com IA** | No playground: **Explicar** o código linha a linha na sua língua, **Corrigir** erros com explicação, criar **Desafios** no seu nível e **Verificar** a solução (compara a saída e dá retorno) |
@@ -62,7 +62,7 @@ As notas ficam no seu aparelho. Cotações, backup na nuvem, atualizações e IA
 | 🪄 | **Assistente passo a passo** | Não é um chat paralelo: aparece dentro da nota com botões contextuais e dinâmicos que vão perguntando (escolhas, número, texto) até gerar as linhas do cálculo, com prévia dos resultados antes de inserir |
 | 🎨 | **Temas e cores da sintaxe** | Premium escuros e claros · paletas de editores de código no estilo Omarchy · clássicos · seguir o sistema · tema personalizado · cores de números, unidades, moedas, operadores, variáveis, funções, comentários, títulos, rótulos, datas, tags e resultados **configuráveis por tema** |
 | 📤 | **Exportação premium** | **PNG** e **PDF iguais à tela** (foto exata da nota, sem barras e menus) · **PDF** com texto selecionável no visual do tema, fontes embutidas e sintaxe colorida · **Word (.docx)** e **PowerPoint (.pptx)** editáveis no mesmo estilo da tela, com tabelas e — no PowerPoint — gráficos nativos com as cores do tema · **Excel (.xlsx)** organizado: seções, descrições, valores com formato de moeda/%/data, totais como `SUM`/`AVERAGE`, variáveis como nomes definidos e expressões convertidas em fórmulas vivas · Excel com todas as notas e aba de resumo · todos os elementos gráficos (gráficos, metas, destaques, cotações, imagens e adesivos) |
-| ☁️ | **Backup e sincronização** | Google Drive criptografado de ponta a ponta (AES-256-GCM) · sincronização automática entre aparelhos · backups datados com rotação · arquivo `.gcpcalc` com senha opcional |
+| ☁️ | **Backup e sincronização** | Configuração guiada dentro do app e **importação do JSON do Google** · Google Drive criptografado de ponta a ponta (AES-256-GCM) · sincronização automática entre aparelhos · backups datados com rotação · arquivo `.gcpcalc` com senha opcional |
 | 🔄 | **Atualizações automáticas** | Direto das Releases do GitHub, com conferência de SHA-256 |
 
 ### Assistentes guiados (funcionam offline)
@@ -119,6 +119,8 @@ Baixe o arquivo do seu sistema na [página da última versão](https://github.co
 | **Fedora, openSUSE, RHEL** | `gcp-calc-x.y.z-1.x86_64.rpm` | Dê dois cliques e escolha **Instalar**. |
 | **Arch, BigLinux, Omarchy, Manjaro** | `gcp-calc-bin-x.y.z-1-x86_64.pkg.tar.zst` | Dê dois cliques (abre no gerenciador de pacotes) e confirme. |
 | **Android 7+** | `GCP-Calc-x.y.z-Android.apk` | Abra o arquivo no celular e permita instalar de fontes desconhecidas. |
+| **iPhone e iPad** | **[App web](https://cliqueprojeto.github.io/GCP-Calc/)** (recomendado) | No Safari: **Compartilhar → Adicionar à Tela de Início**. Funciona offline e atualiza sozinho. |
+| **iPhone e iPad (nativo)** | `GCP-Calc-x.y.z-iOS.ipa` | Instale com Sideloadly ou AltStore e o seu Apple ID. Passo a passo em [docs/IOS.md](docs/IOS.md). |
 
 Cada arquivo vem com o seu `.sha256`, e a release traz `SHA256SUMS.txt`.
 
@@ -143,10 +145,11 @@ sudo pacman -U gcp-calc-bin-*-x86_64.pkg.tar.zst
 O GCP-Calc ainda não usa certificados pagos de assinatura de código, por isso o sistema pode exibir um aviso na primeira vez:
 
 - **Windows (SmartScreen):** clique em **Mais informações → Executar assim mesmo**.
-- **macOS:** clique com o botão direito no app em Aplicativos → **Abrir** → **Abrir**. Se aparecer "está danificado", rode no Terminal:
+- **macOS:** abra o app uma vez, clique em **OK** e vá em ** → Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**. Ou, de uma vez só (também resolve "está danificado"), rode no Terminal:
   ```bash
-  xattr -cr "/Applications/GCP-Calc.app"
+  xattr -dr com.apple.quarantine /Applications/GCP-Calc.app
   ```
+  Guia completo para Mac, iPhone e iPad: [docs/IOS.md](docs/IOS.md).
 </details>
 
 ## 🖼️ Telas
@@ -310,7 +313,7 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 
 ## 🇺🇸 English
 
-**GCP-Calc** is a free, ad-free **notes calculator** for Linux, Windows, macOS (Apple Silicon and Intel) and Android: write calculations the way you think and see results instantly, line by line.
+**GCP-Calc** is a free, ad-free **notes calculator** for Linux, Windows, macOS (Apple Silicon and Intel), Android, and iPhone/iPad (installable web app at <https://cliqueprojeto.github.io/GCP-Calc/> or a sideloadable .ipa): write calculations the way you think and see results instantly, line by line.
 
 - **Natural language** in English, Portuguese and Spanish; free words are ignored (`Rent 1,500 + utilities 450`). Your language's decimal and thousands separators.
 - **Live currencies** (160+ currencies and crypto), refreshed when the app opens and on demand, plus **custom tags** (aliases or your own currencies with a fixed rate).
@@ -340,7 +343,7 @@ As marcas e nomes citados (Google Drive, provedores de IA, paletas de editores e
 
 ## 🇪🇸 Español
 
-**GCP-Calc** es una **calculadora en notas** gratuita y sin anuncios para Linux, Windows, macOS (Apple Silicon e Intel) y Android: escribe cálculos como piensas y ve los resultados al instante, línea por línea.
+**GCP-Calc** es una **calculadora en notas** gratuita y sin anuncios para Linux, Windows, macOS (Apple Silicon e Intel), Android e iPhone/iPad (app web instalable en <https://cliqueprojeto.github.io/GCP-Calc/> o .ipa): escribe cálculos como piensas y ve los resultados al instante, línea por línea.
 
 - **Lenguaje natural** en español, portugués e inglés; las palabras sueltas se ignoran (`Alquiler 1.500 + luz 450`). Separadores decimales y de miles de tu idioma.
 - **Monedas en vivo** (160+ monedas y criptomonedas), actualizadas al abrir la app y cuando lo pidas, y **tags personalizados** (alias o monedas propias con cotización fija).

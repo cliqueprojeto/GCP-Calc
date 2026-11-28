@@ -1,6 +1,6 @@
 [package]
 name = "gcp-calc"
-version = "1.10.0"
+version = "1.11.0"
 description = "GCP-Calc"
 authors = ["Bruno Albertini | Gestão Cultural Pro"]
 license = "GPL-3.0-or-later"

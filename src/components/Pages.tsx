@@ -335,7 +335,8 @@ export function Keypad() {
   const view = useUi((s) => s.view);
   const [page, setPage] = useState(0);
   const dec = useData((s) => (s.settings.decimal === 'dot' || (s.settings.decimal === 'auto' && (s.settings.lang === 'en' || (s.settings.lang === 'auto' && !/^(pt|es)/i.test(navigator.language)))) ? '.' : ','));
-  const show = view.kind === 'note' && !!focus && (mode === 'on' || (mode === 'auto' && isMobile));
+  // o teclado do sistema é o padrão; o de operadores só aparece se ligado (no Android os dois disputavam a tela)
+  const show = view.kind === 'note' && !!focus && mode === 'on';
   if (!show) return null;
   const pages = [
     ['7', '8', '9', '/', '(', ')', '4', '5', '6', '*', '%', '^', '1', '2', '3', '-', '=', '$', '0', dec, ' ', '+', '\u0001mic', '\u0001cam'],

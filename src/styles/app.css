@@ -3957,9 +3957,13 @@ html {
 .voice-fab {
   position: fixed;
   right: calc(16px + var(--safe-r, 0px));
-  bottom: calc(76px + var(--safe-b, 0px) + var(--kb, 0px));
-  width: 54px;
-  height: 54px;
+  bottom: calc(24px + var(--safe-b, 0px) + var(--kb, 0px));
+  width: 56px;
+  height: 56px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s, box-shadow 0.15s;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
@@ -4107,10 +4111,7 @@ html {
   text-transform: none;
 }
 /* digitando: o microfone flutuante sai da frente (ele fica no teclado de operadores) */
-html.editing .voice-fab,
-html.kb-open .voice-fab {
-  display: none !important;
-}
+
 .keypad .op.special {
   color: var(--accent);
 }
@@ -5008,3 +5009,28 @@ html.kb-open .voice-fab {
 .btn.tone-income {
   border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
 }
+
+.voice-fab.dragging {
+  transform: scale(1.1);
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--accent) 55%, rgba(0, 0, 0, 0.35));
+  transition: none;
+}
+
+/* configurar o Google Drive */
+.drive-setup .pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 99px; display: inline-flex; align-items: center; gap: 4px; }
+.drive-setup .pill.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.drive-setup .pill.warn { color: var(--warn, #f59e0b); background: color-mix(in srgb, var(--warn, #f59e0b) 14%, transparent); }
+.drive-setup .grid1 { display: grid; gap: 10px; margin-top: 8px; }
+.dguide { display: flex; flex-direction: column; gap: 12px; max-height: 70vh; overflow: auto; padding-right: 4px; }
+.dg-intro { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+.dg-steps { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 14px; }
+.dg-steps li { display: flex; gap: 12px; }
+.dg-steps li > div { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.dg-steps p { margin: 0; font-size: 14px; line-height: 1.5; color: color-mix(in srgb, var(--text) 85%, var(--muted)); }
+.dg-steps .btn { margin-top: 4px; }
+.dg-n { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--accent-soft); color: var(--accent); }
+.dg-h { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 15px; }
+.dg-probs { display: grid; gap: 10px; }
+.dg-probs b { font-size: 14px; }
+.dg-probs p { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.dg-safe { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: var(--muted); margin: 6px 0 0; }

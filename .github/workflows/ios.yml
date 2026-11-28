@@ -1,0 +1,122 @@
+name: iOS (iPhone e iPad) — .ipa
+# Gera o app nativo para iPhone/iPad. Sem conta paga da Apple, o .ipa sai sem assinatura:
+# instale com Sideloadly ou AltStore (veja docs/IOS.md), que assinam com o seu Apple ID.
+# Com os segredos da Apple configurados, o mesmo fluxo pode ser estendido para TestFlight.
+# Roda junto com cada versão nova (docs/release-notes) ou manualmente pela aba Actions.
+on:
+  push:
+    branches: [main]
+    paths: ['docs/release-notes/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+  VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ios
+      - name: Ferramentas
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodebuild -version
+      - name: Dependências, testes e build web
+        env:
+          TAURI_ENV_PLATFORM: ios
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Gerar projeto Xcode
+        run: |
+          npx tauri ios init --ci
+          ls src-tauri/gen/apple
+      - name: Permissões do iPhone (microfone, câmera, fotos, Face ID)
+        run: |
+          PLIST=$(ls src-tauri/gen/apple/*_iOS/Info.plist | head -1)
+          echo "PLIST=$PLIST"
+          add() { /usr/libexec/PlistBuddy -c "Delete :$1" "$PLIST" 2>/dev/null || true; /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$PLIST"; }
+          add NSMicrophoneUsageDescription "O GCP-Calc usa o microfone para gravar e transcrever anotações por voz."
+          add NSCameraUsageDescription "O GCP-Calc usa a câmera para fotografar comprovantes e ligá-los às despesas."
+          add NSPhotoLibraryUsageDescription "O GCP-Calc acessa as fotos para anexar comprovantes às despesas."
+          add NSFaceIDUsageDescription "O GCP-Calc usa o Face ID para desbloquear o app."
+          /usr/libexec/PlistBuddy -c "Delete :UIFileSharingEnabled" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :LSSupportsOpeningDocumentsInPlace" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" "$PLIST"
+          plutil -p "$PLIST" | head -60
+      - name: Compilar o núcleo (Rust) para iPhone
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --lib --release --target aarch64-apple-ios
+          LIB=src-tauri/target/aarch64-apple-ios/release/libgcp_calc_lib.a
+          test -f "$LIB"
+          for cfg in release Release; do mkdir -p "src-tauri/gen/apple/Externals/arm64/$cfg"; cp "$LIB" "src-tauri/gen/apple/Externals/arm64/$cfg/libapp.a"; done
+          # a fase "Build Rust Code" do Xcode chama o tauri-cli; o núcleo já foi compilado acima
+          PBX=$(ls src-tauri/gen/apple/*.xcodeproj/project.pbxproj | head -1)
+          perl -0pi -e 's/(shellScript = ")[^"]*tauri[^"]*xcode-script[^"]*(";)/$1exit 0$2/g' "$PBX"
+          grep -n "shellScript" "$PBX" | head
+      - name: Compilar o app (sem assinatura)
+        run: |
+          cd src-tauri/gen/apple
+          PROJ=$(ls -d *.xcodeproj | head -1)
+          SCHEME=$(xcodebuild -list -json -project "$PROJ" | python3 -c "import json,sys; s=json.load(sys.stdin)['project']['schemes']; print(next(x for x in s if x.endswith('_iOS')))")
+          CONF=$(xcodebuild -list -json -project "$PROJ" | python3 -c "import json,sys; c=json.load(sys.stdin)['project']['configurations']; print(next((x for x in c if x.lower()=='release'), c[-1]))")
+          echo "projeto=$PROJ esquema=$SCHEME configuração=$CONF"
+          xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration "$CONF" -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" build | tail -40
+          APP=$(find build/Build/Products -name "*.app" -type d | head -1)
+          test -n "$APP"
+          echo "APP=$APP"
+          ls -la "$APP" | head -30
+      - name: Empacotar .ipa
+        id: pkg
+        run: |
+          V=$(node -p "require('./package.json').version")
+          cd src-tauri/gen/apple
+          APP=$(find build/Build/Products -name "*.app" -type d | head -1)
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          OUT="GCP-Calc-$V-iOS.ipa"
+          /usr/bin/zip -qry "$GITHUB_WORKSPACE/$OUT" Payload
+          cd "$GITHUB_WORKSPACE"
+          shasum -a 256 "$OUT" | sed "s#  .*#  $OUT#" > "$OUT.sha256"
+          ls -la "$OUT"; cat "$OUT.sha256"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+          echo "tag=v$V" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: GCP-Calc-*-iOS.ipa*
+      - name: Anexar à release da versão (se existir)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=${{ steps.pkg.outputs.tag }}
+          for i in $(seq 1 40); do
+            gh release view "$TAG" >/dev/null 2>&1 && break
+            echo "aguardando a release $TAG…"; sleep 30
+          done
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" --clobber "${{ steps.pkg.outputs.file }}" "${{ steps.pkg.outputs.file }}.sha256"
+          else
+            echo "::warning::Release $TAG não encontrada; o .ipa ficou nos artefatos desta execução."
+          fi

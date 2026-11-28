@@ -3,7 +3,7 @@ import { useData, flushSave } from './store/data';
 import { useUi } from './store/ui';
 import { useRates } from './lib/rates';
 import { applyTheme, resolveTheme, FONTS } from './lib/themes';
-import { isTauri } from './lib/platform';
+import { isAndroid, isTauri } from './lib/platform';
 import { startAutoSync, hasPendingSync, syncSoon } from './cloud/autosync';
 import { autoBackupIfDue } from './cloud/cloud';
 import { useLang } from './i18n';
@@ -63,7 +63,25 @@ export function App() {
     }
   }, [settings.theme, settings.customTheme, settings.synColors, settings.font, settings.fontSize, lang]);
 
-  // digitando (campo com foco): esconde o botão flutuante de microfone no celular
+  // altura do teclado virtual no navegador/iPhone (no app Android quem informa é a atividade nativa)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || (isTauri && isAndroid)) return;
+    const upd = () => {
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      document.documentElement.style.setProperty('--kb', `${kb > 80 ? kb : 0}px`);
+      document.documentElement.classList.toggle('kb-open', kb > 80);
+    };
+    vv.addEventListener('resize', upd);
+    vv.addEventListener('scroll', upd);
+    upd();
+    return () => {
+      vv.removeEventListener('resize', upd);
+      vv.removeEventListener('scroll', upd);
+    };
+  }, []);
+
+  // digitando (campo com foco): marca a página
   useEffect(() => {
     const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable);
     const on = (e: FocusEvent) => isField(e.target) && document.documentElement.classList.add('editing');

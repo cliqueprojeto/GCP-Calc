@@ -18,3 +18,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 );
+
+// versão web (iPhone/iPad "Adicionar à Tela de Início" e navegadores): funciona offline
+if (import.meta.env.PROD && !('__TAURI_INTERNALS__' in window) && 'serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => void navigator.serviceWorker.register(new URL('sw.js', document.baseURI)).catch(() => undefined));
+}

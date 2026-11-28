@@ -29,6 +29,9 @@ import {
   Type,
   GitBranch,
   ShieldCheck,
+  Mic,
+  BookOpen,
+  FileJson,
 } from 'lucide-react';
 import { Card, Field, Select, Toggle } from './ui';
 import { useData, activeTags } from '../store/data';
@@ -38,10 +41,12 @@ import { THEMES, resolveTheme, SYN_KEYS, FONTS, type ThemeGroup, type SynKey } f
 import { CURRENCIES } from '../engine/currencies';
 import { useRates } from '../lib/rates';
 import { PROVIDERS, providerMeta, testProvider, guessProvider } from '../ai/providers';
-import { APP_VERSION, isTauri, openUrl, pickTextFile, platformInfo, saveTextFile, uid } from '../lib/platform';
+import { APP_VERSION, isMobile, isTauri, openUrl, pickTextFile, platformInfo, saveTextFile, uid } from '../lib/platform';
+import { resetMicPosition } from './VoiceFab';
+import { DriveGuide, parseGoogleClientJson } from './DriveGuide';
 import { RELEASES_URL, REPO, canAutoInstall, downloadAndInstall } from '../lib/updater';
 import { runUpdateCheck, useUpdateStore } from './UpdateBanner';
-import { connect, disconnect, backupNow, listBackups, restoreBackup, syncNow, verifyPassphraseAgainstCloud, hasBuiltInClient, type CloudFile } from '../cloud/cloud';
+import { connect, disconnect, backupNow, listBackups, restoreBackup, syncNow, verifyPassphraseAgainstCloud, hasBuiltInClient, clientConfig, type CloudFile } from '../cloud/cloud';
 import { useSync, SYNC_DELAYS, syncSoon } from '../cloud/autosync';
 import { seal, open as openSealed, type Sealed } from '../cloud/crypto';
 import type { AiProvider, DataDoc, UpdateFrequency } from '../lib/types';
@@ -255,11 +260,15 @@ function General() {
               onChange={(keypad) => setSettings({ keypad })}
               options={[
                 { value: 'auto', label: t('settings.keypadAuto') },
-                { value: 'on', label: t('common.on') },
-                { value: 'off', label: t('common.off') },
+                { value: 'on', label: t('settings.keypadOn') },
               ]}
             />
           </Field>
+          {isMobile && (
+            <button className="btn sm" onClick={() => (resetMicPosition(), toast(t('settings.micReset'), 'ok'))}>
+              <Mic size={14} /> {t('settings.micResetBtn')}
+            </button>
+          )}
         </div>
         <Toggle checked={settings.lineNumbers} onChange={(lineNumbers) => setSettings({ lineNumbers })} label={t('settings.lineNumbers')} />
         <Toggle checked={settings.autoFormat !== false} onChange={(autoFormat) => setSettings({ autoFormat })} label={t('settings.autoFormat')} />
@@ -595,6 +604,16 @@ function BackupSettings() {
   const [files, setFiles] = useState<CloudFile[] | null>(null);
   const [dataDir, setDataDir] = useState('');
   const [advanced, setAdvanced] = useState(false);
+  const [guide, setGuide] = useState(false);
+  const importClientJson = async () => {
+    const f = await pickTextFile([{ name: 'JSON', extensions: ['json'] }]).catch(() => null);
+    if (!f) return;
+    const c = parseGoogleClientJson(f.text);
+    if (!c) return toast(t('cloud.jsonInvalid'), 'error');
+    setSettings((s) => ({ cloud: { ...s.cloud, googleClientId: c.clientId, googleClientSecret: c.clientSecret ?? '' } }));
+    toast(c.kind === 'web' ? t('cloud.jsonWeb') : t('cloud.jsonOk'), c.kind === 'web' ? 'error' : 'ok');
+    setGuide(false);
+  };
   useEffect(() => {
     platformInfo().then((i) => setDataDir(i.data_dir));
   }, []);
@@ -704,6 +723,51 @@ function BackupSettings() {
           </div>
         </div>
 
+        <div className="sub-card drive-setup">
+          <div className="row-between">
+            <b>{t('cloud.setupTitle')}</b>
+            {clientConfig().clientId ? (
+              <span className="pill ok">
+                <Check size={12} /> {cloud.googleClientId ? t('cloud.ownReady') : t('cloud.builtInReady')}
+              </span>
+            ) : (
+              <span className="pill warn">{t('cloud.needClient')}</span>
+            )}
+          </div>
+          <p className="field-hint">{hasBuiltInClient() ? t('cloud.builtIn') : t('cloud.ownClient')}</p>
+          <div className="btn-row">
+            <button className="btn sm primary grad" onClick={() => setGuide(true)}>
+              <BookOpen size={14} /> {t('cloud.guideBtn')}
+            </button>
+            <button className="btn sm" onClick={importClientJson}>
+              <FileJson size={14} /> {t('cloud.importJson')}
+            </button>
+            <button className="btn sm" onClick={() => setAdvanced((a) => !a)}>
+              <KeyRound size={14} /> {t('cloud.typeManually')}
+            </button>
+          </div>
+          {cloud.googleClientId && (
+            <small className="muted mono">
+              {cloud.googleClientId.slice(0, 18)}…{cloud.googleClientId.slice(-28)}
+              {' · '}
+              <button className="link" onClick={() => setSettings((s) => ({ cloud: { ...s.cloud, googleClientId: '', googleClientSecret: '' } }))}>
+                {t('cloud.clearClient')}
+              </button>
+            </small>
+          )}
+          {advanced && (
+            <div className="grid1">
+              <Field label="Google OAuth Client ID">
+                <input className="input mono" value={cloud.googleClientId ?? ''} onChange={(e) => setSettings((s) => ({ cloud: { ...s.cloud, googleClientId: e.target.value.trim() } }))} placeholder="xxxx.apps.googleusercontent.com" />
+              </Field>
+              <Field label="Client secret">
+                <input className="input mono" type="password" value={cloud.googleClientSecret ?? ''} onChange={(e) => setSettings((s) => ({ cloud: { ...s.cloud, googleClientSecret: e.target.value.trim() } }))} />
+              </Field>
+            </div>
+          )}
+        </div>
+        <DriveGuide open={guide} onClose={() => setGuide(false)} onImport={() => void importClientJson()} githubUrl={`https://github.com/${REPO}/blob/main/docs/CLOUD-SETUP.md`} />
+
         <div className="sub-card">
           <Field label={<><KeyRound size={13} /> {t('cloud.passphrase')}</>} hint={cloud.passphrase ? t('cloud.passSet') : t('cloud.passHint')}>
             <div className="input-group">
@@ -765,23 +829,6 @@ function BackupSettings() {
           </div>
         )}
 
-        <button className="link" onClick={() => setAdvanced((a) => !a)}>
-          {advanced ? '▾' : '▸'} {t('cloud.advanced')}
-        </button>
-        {advanced && (
-          <div className="sub-card">
-            <p className="field-hint">{hasBuiltInClient() ? t('cloud.builtIn') : t('cloud.ownClient')}</p>
-            <Field label="Google OAuth Client ID">
-              <input className="input mono" value={cloud.googleClientId ?? ''} onChange={(e) => setSettings((s) => ({ cloud: { ...s.cloud, googleClientId: e.target.value.trim() } }))} placeholder="xxxx.apps.googleusercontent.com" />
-            </Field>
-            <Field label="Client secret">
-              <input className="input mono" type="password" value={cloud.googleClientSecret ?? ''} onChange={(e) => setSettings((s) => ({ cloud: { ...s.cloud, googleClientSecret: e.target.value.trim() } }))} />
-            </Field>
-            <button className="link" onClick={() => openUrl(`https://github.com/${REPO}/blob/main/docs/CLOUD-SETUP.md`)}>
-              {t('cloud.guide')} <ExternalLink size={11} />
-            </button>
-          </div>
-        )}
       </Card>
     </>
   );
