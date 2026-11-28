@@ -11,7 +11,7 @@ import { audioProviders, blobToDataUrl, canLiveDictate, canRecord, MAX_RECORD_MS
 import { dictationGoal, dictationItems } from '../lib/dictation';
 import { classifyTerm, type Kind } from '../engine/vocab';
 import type { KnownNames } from '../lib/voiceFormulas';
-import { offlineAvailable, offlineReady, transcribeOffline, warmUp } from '../lib/whisper';
+import { enableOfflineHere, offlineAvailable, offlineDisabledHere, offlineReady, preloadOffline, transcribeOffline, warmUp } from '../lib/whisper';
 import { useData } from '../store/data';
 import { toast, useUi } from '../store/ui';
 import { nextStep, orderedProviders } from '../ai/assist';
@@ -57,10 +57,11 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
     return () => clearInterval(id);
   }, [phase]);
   useEffect(() => {
-    // já começa a preparar o Whisper: quando terminar de falar, ele está pronto
+    // no computador já começa a preparar o Whisper (quando terminar de falar, ele está pronto);
+    // no celular ele só carrega na hora de transcrever, para não pesar na memória
     void offlineAvailable().then((ok) => {
       setOffline(ok);
-      if (ok) {
+      if (ok && preloadOffline()) {
         setModel(offlineReady() ? 'ready' : 'loading');
         warmUp(ctx.lang).then(
           () => setModel('ready'),
@@ -100,6 +101,15 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
     let text = translate ? '' : transcript || r.live;
     // 1º Whisper embutido (offline); 2º IA configurada
     let offlineErr = '';
+    // no celular, com IA configurada, a IA vem primeiro (o modelo offline usa muita memória)
+    if (!text && !preloadOffline() && audioAi.length) {
+      setStatus(t('voice.transcribing'));
+      try {
+        text = await transcribe(settings.ai.providers, r.blob, ctx.lang);
+      } catch (e) {
+        console.warn('transcribe', e);
+      }
+    }
     if (!text && (await offlineAvailable())) {
       setStatus(offlineReady() ? t('voice.offlineWorking') : t('voice.offlineLoading'));
       try {
@@ -114,7 +124,7 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
         console.warn('whisper', e);
       }
     }
-    if (!text && audioAi.length) {
+    if (!text && audioAi.length && preloadOffline()) {
       setStatus(t('voice.transcribing'));
       try {
         text = await transcribe(settings.ai.providers, r.blob, ctx.lang);
@@ -206,6 +216,15 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
             </p>
           )}
           {offline && model === 'ready' && <p className="muted small voice-model ok">✓ {t('voice.modelReady')}</p>}
+          {offline && !preloadOffline() && model !== 'ready' && <p className="muted small voice-model">{t('voice.loadsLater')}</p>}
+          {offlineDisabledHere() && (
+            <p className="muted small voice-model">
+              {t('voice.offlineOffHere')}{' '}
+              <button className="link" onClick={() => (enableOfflineHere(), void offlineAvailable().then(setOffline))}>
+                {t('voice.offlineTryAgain')}
+              </button>
+            </p>
+          )}
           {offline && model === 'error' && <p className="muted small voice-model err">{t('voice.offlineFailed', { err: modelErr.slice(0, 120) })}</p>}
           <p className="muted small">
             {offline ? t('voice.offlineOk') : canLiveDictate() ? t('voice.liveOk') : audioAi.length ? t('voice.aiOk', { name: audioAi[0].name }) : t('voice.noAi')}

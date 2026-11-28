@@ -6,7 +6,9 @@ import { applyTheme, resolveTheme, FONTS } from './lib/themes';
 import { isAndroid, isTauri } from './lib/platform';
 import { startAutoSync, hasPendingSync, syncSoon } from './cloud/autosync';
 import { autoBackupIfDue } from './cloud/cloud';
-import { useLang } from './i18n';
+import { useLang, translate, resolveLang } from './i18n';
+import { checkWhisperCrash } from './lib/whisper';
+import { toast } from './store/ui';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { NoteView } from './components/NoteView';
@@ -62,6 +64,11 @@ export function App() {
       return () => mq.removeEventListener('change', h);
     }
   }, [settings.theme, settings.customTheme, settings.synColors, settings.font, settings.fontSize, lang]);
+
+  // o app fechou carregando a transcrição offline no celular? desliga neste aparelho e avisa
+  useEffect(() => {
+    if (checkWhisperCrash()) setTimeout(() => toast(translate(resolveLang(useData.getState().settings.lang), 'voice.crashNotice'), 'error'), 1500);
+  }, []);
 
   // altura do teclado virtual no navegador/iPhone (no app Android quem informa é a atividade nativa)
   useEffect(() => {

@@ -6,8 +6,15 @@ import android.os.Build
 import android.os.Bundle
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.content.Intent
+import android.graphics.Bitmap
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.core.view.ViewCompat
@@ -19,6 +26,8 @@ import androidx.core.view.WindowInsetsCompat
  *   o tamanho do texto é ajustado dentro do app (Configurações › Geral › Editor).
  * - Permissões (microfone, câmera e notificações): pedidas uma única vez, juntas, pela tela de
  *   boas-vindas do app; o estado real vem do Android (nada de pedidos repetidos ou simultâneos).
+ * - Se o processo da WebView cair (ex.: falta de memória), reinicia o app em vez de fechar
+ *   com "apresenta falhas continuamente".
  * - Desenha de ponta a ponta e informa ao CSS as áreas da barra de status, da barra de
  *   gestos, do entalhe e do teclado (--safe-t/-b/-l/-r e --kb), em pixels CSS.
  */
@@ -81,8 +90,35 @@ class MainActivity : TauriActivity() {
       @JavascriptInterface
       fun allGranted(): Boolean = missing().isEmpty()
     }, "GcpNative")
+    // Cliente da WebView do Tauri com proteção contra queda do processo de renderização.
+    webView.post { guardRenderer(webView) }
     // A página carrega depois da criação da WebView: reaplica algumas vezes.
     for (delay in longArrayOf(400, 1500, 4000)) webView.postDelayed({ push() }, delay)
+  }
+
+  /** Envolve o cliente do Tauri (tudo é repassado a ele) e trata a queda da WebView. */
+  private fun guardRenderer(wv: WebView) {
+    if (Build.VERSION.SDK_INT < 26) return
+    val orig = wv.webViewClient
+    if (orig.javaClass.name.endsWith("GuardedClient")) return
+    wv.webViewClient = object : WebViewClient() {
+      override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? = orig.shouldInterceptRequest(view, request)
+      override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = orig.shouldOverrideUrlLoading(view, request)
+      override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) = orig.onPageStarted(view, url, favicon)
+      override fun onPageFinished(view: WebView, url: String) = orig.onPageFinished(view, url)
+      override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) = orig.doUpdateVisitedHistory(view, url, isReload)
+      override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) = orig.onReceivedError(view, request, error)
+      override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+        // as notas já foram salvas no disco; abre o app de novo, limpo
+        packageManager.getLaunchIntentForPackage(packageName)?.let {
+          it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+          startActivity(it)
+        }
+        finishAffinity()
+        Runtime.getRuntime().exit(0)
+        return true
+      }
+    }
   }
 
   private fun wanted(): List<String> {
