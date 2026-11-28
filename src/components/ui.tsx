@@ -3,6 +3,10 @@ import { X } from 'lucide-react';
 import { useUi } from '../store/ui';
 
 export function Modal({ open, onClose, title, children, wide, className }: { open: boolean; onClose(): void; title?: ReactNode; children: ReactNode; wide?: boolean; className?: string }) {
+  const openedAt = useRef(Date.now());
+  useEffect(() => {
+    if (open) openedAt.current = Date.now();
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -11,7 +15,11 @@ export function Modal({ open, onClose, title, children, wide, className }: { ope
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="modal-back"
+      // o toque que abriu a janela não pode fechá-la (no Android o "clique" chega logo depois)
+      onMouseDown={(e) => e.target === e.currentTarget && Date.now() - openedAt.current > 450 && onClose()}
+    >
       <div className={`modal ${wide ? 'wide' : ''} ${className ?? ''}`} role="dialog" aria-modal="true">
         {title !== undefined && (
           <div className="modal-head">

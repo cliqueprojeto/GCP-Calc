@@ -1,7 +1,7 @@
 {
   "name": "gcp-calc",
   "private": true,
-  "version": "1.11.1",
+  "version": "1.11.2",
   "description": "GCP-Calc — calculadora em notas: cálculos em linguagem natural, moedas ao vivo, unidades, IA assistiva e sincronização criptografada.",
   "author": "Bruno Albertini | Gestão Cultural Pro",
   "license": "GPL-3.0-or-later",

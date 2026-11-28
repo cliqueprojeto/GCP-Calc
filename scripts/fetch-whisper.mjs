@@ -1,4 +1,4 @@
-// Baixa (uma vez, na hora de compilar) o modelo Whisper "base" multilíngue quantizado e o
+// Baixa (uma vez, na hora de compilar) os modelos Whisper "base" e "tiny" multilíngues quantizados e os
 // coloca em public/runtimes/whisper, para a transcrição funcionar offline dentro do app.
 // Modelo: onnx-community/whisper-base (OpenAI Whisper, licença MIT). Se falhar, o build
 // continua e o app usa a transcrição pela IA configurada.
@@ -6,8 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const REPO = 'onnx-community/whisper-base';
-const DIR = path.join(ROOT, 'public/runtimes/whisper', REPO);
+// base: computador (mais preciso) · tiny: celular (leve na memória)
+const REPOS = ['onnx-community/whisper-base', 'onnx-community/whisper-tiny'];
 const FILES = [
   'config.json',
   'generation_config.json',
@@ -21,6 +21,8 @@ const FILES = [
   'onnx/decoder_model_merged_quantized.onnx',
 ];
 let ok = true;
+for (const REPO of REPOS) {
+const DIR = path.join(ROOT, 'public/runtimes/whisper', REPO);
 for (const f of FILES) {
   const dest = path.join(DIR, f);
   if (fs.existsSync(dest) && fs.statSync(dest).size > 0) continue;
@@ -43,5 +45,6 @@ for (const f of FILES) {
     }
   }
   if (!done) ok = false;
+}
 }
 console.log(ok ? 'modelo Whisper pronto em public/runtimes/whisper' : '⚠ modelo Whisper incompleto: a transcrição offline ficará indisponível neste build');

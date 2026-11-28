@@ -10,6 +10,7 @@ const base = () => new URL('./', location.href).href;
 
 const isPhone = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const GUARD = 'gcp-calc:whisper-guard';
+const FORCE_TINY = 'gcp-calc:whisper-tiny';
 const OFF = 'gcp-calc:whisper-off';
 const ls = {
   get: (k: string) => {
@@ -35,21 +36,35 @@ const ls = {
  * transcrição offline fica desligada neste aparelho. Devolve true quando isso acabou de acontecer.
  */
 export function checkWhisperCrash(): boolean {
-  if (!isPhone || !ls.get(GUARD)) return false;
+  const g = ls.get(GUARD);
+  if (!isPhone || !g) return false;
   ls.set(GUARD, null);
+  // caiu com o modelo "base": passa para o "tiny" (mais leve); caiu com o "tiny": desliga
+  if (g.includes('whisper-base')) {
+    ls.set(FORCE_TINY, '1');
+    return false;
+  }
   ls.set(OFF, '1');
   return true;
 }
 export const offlineDisabledHere = () => ls.get(OFF) === '1';
 export function enableOfflineHere() {
   ls.set(OFF, null);
+  ls.set(FORCE_TINY, '1');
   available = null;
 }
-/** celular com pouca memória (navigator.deviceMemory em GB, quando o sistema informa) */
+/** celular com pouquíssima memória (navigator.deviceMemory em GB, quando o sistema informa) */
 const lowMemory = () => {
   const m = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
-  return isPhone && typeof m === 'number' && m < 4;
+  return isPhone && typeof m === 'number' && m < 2;
 };
+/**
+ * Modelo: "base" (mais preciso) no computador e em celulares com 8 GB ou mais; "tiny" (leve na
+ * memória) nos demais celulares ou depois que o "base" faltou memória neste aparelho.
+ */
+const bigPhone = () => ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 0) >= 8 && ls.get(FORCE_TINY) !== '1';
+const MODELS = !isPhone || bigPhone() ? ['onnx-community/whisper-base', 'onnx-community/whisper-tiny'] : ['onnx-community/whisper-tiny', 'onnx-community/whisper-base'];
+let model = MODELS[0];
 /** No celular o modelo só carrega quando for mesmo transcrever (não ao abrir a tela de voz). */
 export const preloadOffline = () => !isPhone;
 
@@ -57,11 +72,19 @@ export const preloadOffline = () => !isPhone;
 export async function offlineAvailable(): Promise<boolean> {
   if (offlineDisabledHere() || lowMemory()) return false;
   if (available !== null) return available;
-  try {
-    const r = await fetch(base() + 'runtimes/whisper/onnx-community/whisper-base/config.json');
-    available = r.ok;
-  } catch {
-    available = false;
+  available = false;
+  for (const m of MODELS) {
+    try {
+      const r = await fetch(base() + `runtimes/whisper/${m}/config.json`);
+      // alguns servidores devolvem a página do app (HTML) para arquivos que não existem
+      if (r.ok && !(r.headers.get('content-type') || '').includes('text/html')) {
+        model = m;
+        available = true;
+        break;
+      }
+    } catch {
+      /* tenta o próximo */
+    }
   }
   return available;
 }
@@ -75,7 +98,7 @@ export function warmUp(lang: Lang): Promise<void> {
   if (ready) return Promise.resolve();
   if (warming) return warming;
   const w = getWorker();
-  if (isPhone) ls.set(GUARD, String(Date.now()));
+  if (isPhone) ls.set(GUARD, model);
   warming = new Promise<void>((resolve, reject) => {
     const h = (e: MessageEvent) => {
       if (e.data.type === 'ready') {
@@ -91,7 +114,7 @@ export function warmUp(lang: Lang): Promise<void> {
       }
     };
     w.addEventListener('message', h);
-    w.postMessage({ warm: true, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: 'transcribe', base: base() });
+    w.postMessage({ warm: true, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: 'transcribe', base: base(), model });
   });
   return warming;
 }
@@ -116,7 +139,7 @@ export async function transcribeOffline(input: Blob | Float32Array, lang: Lang, 
   const audio = input instanceof Float32Array ? input : await toPcm16k(input);
   if (audio.length < 1600) throw new Error('áudio vazio');
   const w = getWorker();
-  if (isPhone && !ready) ls.set(GUARD, String(Date.now()));
+  if (isPhone && !ready) ls.set(GUARD, model);
   return new Promise((resolve, reject) => {
     const h = (e: MessageEvent) => {
       const m = e.data;
@@ -147,6 +170,6 @@ export async function transcribeOffline(input: Blob | Float32Array, lang: Lang, 
       reject(new Error(e.message || 'whisper'));
     };
     const copy = new Float32Array(audio);
-    w.postMessage({ audio: copy, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: opts.translate ? 'translate' : 'transcribe', base: base() }, [copy.buffer]);
+    w.postMessage({ audio: copy, lang: { pt: 'portuguese', en: 'english', es: 'spanish' }[lang], task: opts.translate ? 'translate' : 'transcribe', base: base(), model }, [copy.buffer]);
   });
 }

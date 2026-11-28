@@ -18,8 +18,9 @@ export function pickFiles(camera: boolean): Promise<File[]> {
       resolve(Array.from(i.files ?? []));
       i.remove();
     };
-    // cancelado: alguns sistemas não disparam nada; resolve vazio ao voltar o foco
-    window.addEventListener('focus', () => setTimeout(() => !i.files?.length && resolve([]), 1500), { once: true });
+    // cancelado: alguns sistemas não disparam nada; resolve vazio ao voltar o foco.
+    // Da câmera a foto chega alguns segundos depois de voltar ao app: não dá como cancelado.
+    if (!camera) window.addEventListener('focus', () => setTimeout(() => !i.files?.length && resolve([]), 5000), { once: true });
     document.body.appendChild(i);
     i.click();
   });

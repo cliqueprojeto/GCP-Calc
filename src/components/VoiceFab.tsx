@@ -56,6 +56,9 @@ export function VoiceFab({ onTap, label }: { onTap(): void; label: string }) {
       // o toque no botão não tira o foco do editor (o teclado continua aberto)
       onMouseDown={(e) => e.preventDefault()}
       onPointerDown={(e) => {
+        // sem os eventos de mouse "de compatibilidade" do Android: eles caíam no fundo da janela de
+        // voz recém-aberta e a fechavam (por isso só funcionava segurando o botão)
+        e.preventDefault();
         drag.current = { x: e.clientX, y: e.clientY, start: pos, moved: false, id: e.pointerId };
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       }}
@@ -79,7 +82,7 @@ export function VoiceFab({ onTap, label }: { onTap(): void; label: string }) {
             /* sem armazenamento */
           }
           setPos({ ...pos });
-        } else onTap();
+        } else setTimeout(onTap, 30);
       }}
       onPointerCancel={() => (drag.current = null)}
     >

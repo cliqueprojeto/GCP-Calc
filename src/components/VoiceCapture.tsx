@@ -28,6 +28,19 @@ export interface VoiceResult {
 
 const mmss = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
+/** com internet? (sem rede a IA nem é tentada: vai direto para a transcrição offline) */
+const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
+/** desiste de esperar a rede depois de alguns segundos */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error('timeout')), ms);
+    p.then(
+      (v) => (clearTimeout(id), resolve(v)),
+      (e) => (clearTimeout(id), reject(e)),
+    );
+  });
+}
+
 export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText = '', onDone, onClose }: { ctx: EvalContext; fmt: FormatOptions; noteContext: string; existing?: { blob: Blob; ms: number; transcript?: string }; known?: KnownNames; blockText?: string; onDone(r: VoiceResult): void; onClose(): void }) {
   const t = useT();
   const settings = useData((s) => s.settings);
@@ -80,10 +93,11 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
     const offline = items.map((x) => x.line);
     setLines(offline.join('\n'));
     setUsedAi(false);
-    if (!providers.length || !text.trim()) return;
+    // sem internet: fica a conversão local (sem IA), na hora
+    if (!providers.length || !text.trim() || !online()) return;
     setStatus(t('voice.organizing'));
     try {
-      const step = await nextStep(providers, { lang: ctx.lang, decimal: ctx.decimal, baseCurrency: settings.baseCurrency, goal: dictationGoal(text, ctx.lang), noteContext, turns: [], inline: true });
+      const step = await withTimeout(nextStep(providers, { lang: ctx.lang, decimal: ctx.decimal, baseCurrency: settings.baseCurrency, goal: dictationGoal(text, ctx.lang), noteContext, turns: [], inline: true }), 20000);
       if (step.type === 'result' && step.lines.length) {
         setLines(step.lines.filter((l) => l.trim()).join('\n'));
         setUsedAi(true);
@@ -102,10 +116,10 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
     // 1º Whisper embutido (offline); 2º IA configurada
     let offlineErr = '';
     // no celular, com IA configurada, a IA vem primeiro (o modelo offline usa muita memória)
-    if (!text && !preloadOffline() && audioAi.length) {
+    if (!text && !preloadOffline() && audioAi.length && online()) {
       setStatus(t('voice.transcribing'));
       try {
-        text = await transcribe(settings.ai.providers, r.blob, ctx.lang);
+        text = await withTimeout(transcribe(settings.ai.providers, r.blob, ctx.lang), 25000);
       } catch (e) {
         console.warn('transcribe', e);
       }
@@ -124,10 +138,10 @@ export function VoiceCapture({ ctx, fmt, noteContext, existing, known, blockText
         console.warn('whisper', e);
       }
     }
-    if (!text && audioAi.length && preloadOffline()) {
+    if (!text && audioAi.length && preloadOffline() && online()) {
       setStatus(t('voice.transcribing'));
       try {
-        text = await transcribe(settings.ai.providers, r.blob, ctx.lang);
+        text = await withTimeout(transcribe(settings.ai.providers, r.blob, ctx.lang), 25000);
       } catch (e) {
         toast(`${t('voice.transcribeFail')}: ${String((e as Error)?.message || e).slice(0, 140)}`, 'error');
       }

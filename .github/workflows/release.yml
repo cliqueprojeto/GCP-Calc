@@ -201,6 +201,8 @@ jobs:
           for perm in RECORD_AUDIO MODIFY_AUDIO_SETTINGS POST_NOTIFICATIONS CAMERA; do
             grep -q "android.permission.$perm" "$MANIFEST" || sed -i "s#<application#<uses-permission android:name=\"android.permission.$perm\" />\n    <application#" "$MANIFEST"
           done
+          # Android 11+: sem declarar, o app não "enxerga" o app de câmera e a foto cai na galeria
+          grep -q 'android.media.action.IMAGE_CAPTURE' "$MANIFEST" || sed -i 's#<application#<queries>\n        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>\n        <intent><action android:name="android.media.action.VIDEO_CAPTURE" /></intent>\n    </queries>\n    <application#' "$MANIFEST"
           # Câmera opcional (o app também roda em aparelhos sem câmera)
           grep -q 'android.hardware.camera' "$MANIFEST" || sed -i 's#<application#<uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' "$MANIFEST"
           # FileProvider: a câmera devolve a foto ao app por ele (comprovantes)

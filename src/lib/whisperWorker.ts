@@ -7,8 +7,9 @@ import { env, pipeline, type AutomaticSpeechRecognitionPipeline } from '@hugging
 
 let asr: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
 
-self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; task: 'transcribe' | 'translate'; base: string; warm?: boolean }>) => {
+self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; task: 'transcribe' | 'translate'; base: string; warm?: boolean; model?: string }>) => {
   const { audio, lang, task, base, warm } = e.data;
+  const model = e.data.model || 'onnx-community/whisper-base';
   try {
     if (!asr) {
       env.allowRemoteModels = false;
@@ -28,7 +29,7 @@ self.onmessage = async (e: MessageEvent<{ audio?: Float32Array; lang: string; ta
       wasm.wasmPaths = base + 'runtimes/ort/';
       wasm.numThreads = (self as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
       postMessage({ type: 'status', s: 'loading' });
-      asr = pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', {
+      asr = pipeline('automatic-speech-recognition', model, {
         dtype: { encoder_model: 'q8', decoder_model_merged: 'q8' },
         device: 'wasm',
         progress_callback: (p: { status: string; progress?: number }) => {
