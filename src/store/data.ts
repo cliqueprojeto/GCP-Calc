@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { loadDoc, saveDoc, uid } from '../lib/platform';
-import type { Block, DataDoc, Folder, InboxItem, Note, Reminder, Settings, Tag, UserTemplate } from '../lib/types';
+import type { Block, DataDoc, Folder, InboxItem, Note, Reminder, Settings, Share, Tag, UserTemplate } from '../lib/types';
 import { welcomeNotes } from '../notes/welcome';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -44,10 +44,13 @@ interface DataState {
   templates: UserTemplate[];
   reminders: Reminder[];
   inbox: InboxItem[];
+  shares: Share[];
   settings: Settings;
   /** contador de alterações locais (para a sincronização) */
   rev: number;
   load(): Promise<void>;
+  saveShare(sh: Omit<Share, 'updated'>): void;
+  patchShare(id: string, patch: Partial<Share>): void;
   createNote(p?: Partial<Note>): string;
   updateNote(id: string, fn: (n: Note) => Note | void): void;
   updateBlock(noteId: string, blockId: string, patch: Partial<Block>): void;
@@ -103,6 +106,7 @@ export const useData = create<DataState>((set, get) => ({
   templates: [],
   reminders: [],
   inbox: [],
+  shares: [],
   settings: DEFAULT_SETTINGS,
   rev: 0,
 
@@ -130,6 +134,7 @@ export const useData = create<DataState>((set, get) => ({
       reminders: doc?.reminders ?? [],
       // a central guarda 90 dias de avisos
       inbox: (doc?.inbox ?? []).filter((x) => x.at > now() - 90 * 86400_000),
+      shares: doc?.shares ?? [],
       settings: s,
     });
     if (!doc) persistData();
@@ -222,6 +227,16 @@ export const useData = create<DataState>((set, get) => ({
       return { templates: exists ? s.templates.map((x) => (x.id === tp.id ? item : x)) : [...s.templates, item], rev: s.rev + 1 };
     });
   },
+  saveShare(sh) {
+    set((s) => {
+      const item: Share = { ...sh, updated: now() };
+      const exists = s.shares.some((x) => x.id === sh.id);
+      return { shares: exists ? s.shares.map((x) => (x.id === sh.id ? item : x)) : [...s.shares, item], rev: s.rev + 1 };
+    });
+  },
+  patchShare(id, patch) {
+    set((s) => ({ shares: s.shares.map((x) => (x.id === id ? { ...x, ...patch, updated: now() } : x)), rev: s.rev + 1 }));
+  },
   saveReminder(r) {
     set((s) => {
       const item: Reminder = { ...r, updated: now() };
@@ -259,12 +274,12 @@ export const useData = create<DataState>((set, get) => ({
   },
 
   exportDoc() {
-    const { notes, folders, tags, templates, reminders, inbox } = get();
-    return { version: 1, notes, folders, tags, templates, reminders, inbox };
+    const { notes, folders, tags, templates, reminders, inbox, shares } = get();
+    return { version: 1, notes, folders, tags, templates, reminders, inbox, shares };
   },
 
   importDoc(doc, mode) {
-    if (mode === 'replace') set((s) => ({ notes: doc.notes, folders: doc.folders, tags: doc.tags, templates: doc.templates ?? [], reminders: doc.reminders ?? [], inbox: doc.inbox ?? [], rev: s.rev + 1 }));
+    if (mode === 'replace') set((s) => ({ notes: doc.notes, folders: doc.folders, tags: doc.tags, templates: doc.templates ?? [], reminders: doc.reminders ?? [], inbox: doc.inbox ?? [], shares: doc.shares ?? [], rev: s.rev + 1 }));
     else get().mergeRemote(doc);
   },
 
@@ -276,9 +291,10 @@ export const useData = create<DataState>((set, get) => ({
     const p = mergeLists(s.templates, doc.templates || []);
     const r = mergeLists(s.reminders, doc.reminders || []);
     const i = mergeLists(s.inbox, doc.inbox || []);
-    const pulled = n.pulled + f.pulled + t.pulled + p.pulled + r.pulled + i.pulled;
-    if (pulled) set({ notes: n.list.sort((a, b) => b.updated - a.updated), folders: f.list, tags: t.list, templates: p.list, reminders: r.list, inbox: i.list.sort((a, b) => b.at - a.at) });
-    return { pulled, ahead: n.ahead || f.ahead || t.ahead || p.ahead || r.ahead || i.ahead };
+    const sh = mergeLists(s.shares, doc.shares || []);
+    const pulled = n.pulled + f.pulled + t.pulled + p.pulled + r.pulled + i.pulled + sh.pulled;
+    if (pulled) set({ notes: n.list.sort((a, b) => b.updated - a.updated), folders: f.list, tags: t.list, templates: p.list, reminders: r.list, inbox: i.list.sort((a, b) => b.at - a.at), shares: sh.list });
+    return { pulled, ahead: n.ahead || f.ahead || t.ahead || p.ahead || r.ahead || i.ahead || sh.ahead };
   },
 }));
 

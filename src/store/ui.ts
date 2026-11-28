@@ -21,6 +21,8 @@ interface UiState {
   unlocked?: boolean;
   /** pedidos vindos do teclado de operadores: gravar voz / anexar comprovante */
   voiceRequest?: number;
+  /** abrir "Entrar com link" (texto do link, se veio pela URL) */
+  joinRequest?: { link?: string; at: number };
   attachRequest?: number;
   /** assistente aberto na nota (id do bloco depois do qual ele aparece) */
   assistant?: { noteId: string; afterBlock?: string; goal?: string; turns?: Turn[] };

@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Mic,
   CloudAlert,
+  Radio,
   BookOpen,
   FileJson,
 } from 'lucide-react';
@@ -45,6 +46,7 @@ import { PROVIDERS, providerMeta, testProvider, guessProvider } from '../ai/prov
 import { APP_VERSION, isMobile, isTauri, openUrl, pickTextFile, platformInfo, saveTextFile, uid } from '../lib/platform';
 import { resetMicPosition } from './VoiceFab';
 import { DriveGuide, parseGoogleClientJson } from './DriveGuide';
+import { CollabSettings } from './Collab';
 import { RELEASES_URL, REPO, canAutoInstall, downloadAndInstall } from '../lib/updater';
 import { runUpdateCheck, useUpdateStore } from './UpdateBanner';
 import { connect, disconnect, backupNow, listBackups, restoreBackup, syncNow, verifyPassphraseAgainstCloud, hasBuiltInClient, clientConfig, type CloudFile } from '../cloud/cloud';
@@ -58,7 +60,7 @@ import { evaluateLine, newDocState } from '../engine/evaluate';
 import { formatValue } from '../engine/value';
 import { askConfirm, askText } from './Dialogs';
 
-type Section = 'general' | 'calc' | 'currency' | 'ai' | 'backup' | 'security' | 'permissions' | 'updates' | 'about';
+type Section = 'general' | 'calc' | 'currency' | 'ai' | 'backup' | 'security' | 'permissions' | 'updates' | 'about' | 'collab';
 
 export function SettingsView({ initial }: { initial?: string }) {
   const t = useT();
@@ -72,6 +74,7 @@ export function SettingsView({ initial }: { initial?: string }) {
     { id: 'currency', icon: <Coins size={16} />, label: t('settings.currency') },
     { id: 'ai', icon: <Bot size={16} />, label: t('settings.ai') },
     { id: 'backup', icon: <CloudUpload size={16} />, label: t('settings.backup') },
+    { id: 'collab', icon: <Radio size={16} />, label: t('collab.settings') },
     { id: 'security', icon: <KeyRound size={16} />, label: t('lock.section') },
     { id: 'permissions', icon: <ShieldCheck size={16} />, label: t('perm.section') },
     { id: 'updates', icon: <RefreshCw size={16} />, label: t('settings.updates') },
@@ -108,6 +111,7 @@ export function SettingsView({ initial }: { initial?: string }) {
           {sec === 'currency' && <CurrencySettings />}
           {sec === 'ai' && <AiSettings />}
           {sec === 'backup' && <BackupSettings />}
+          {sec === 'collab' && <CollabSettings onJoin={() => useUi.getState().set({ joinRequest: { at: Date.now() } })} />}
           {sec === 'updates' && <UpdateSettings />}
           {sec === 'about' && <About />}
         </div>

@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "gcp-calc"
-version = "1.11.4"
+version = "1.12.0"
 dependencies = [
  "base64 0.22.1",
  "hex",

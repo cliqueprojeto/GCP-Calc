@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.12.0 — colaboração em tempo real
+
+Compartilhe uma **nota** ou uma **pasta inteira** e editem juntos, ao vivo — sem conta e sem configurar nenhum serviço.
+
+- **⋯ → Compartilhar ao vivo:** escolha **o que** compartilhar (esta nota ou a pasta inteira) e **como** sincronizar, crie o link e envie. Quem recebe abre o link (ou cola em **⋯ → Entrar com link**) e toca em **Entrar**.
+- **Direto entre aparelhos (P2P):** nada para configurar. As alterações aparecem na hora para quem estiver com o app aberto, e cada um guarda a sua cópia.
+- **P2P + servidor de sincronização (opcional):** entrega as alterações mesmo para quem abrir depois, com você offline. O servidor guarda só dados cifrados — o código dele está no repositório (`server/`) e roda de graça em qualquer hospedagem de Node ou com Docker.
+- **Edição simultânea sem conflito:** duas pessoas digitando na mesma nota (até na mesma seção) têm as edições mescladas automaticamente; dá para editar offline e tudo se junta ao reconectar.
+- **Selo “Ao vivo”** no topo da nota, com quem está editando junto.
+- **Privado por padrão:** o link carrega uma chave secreta; o conteúdo trafega cifrado e só a nota ou pasta escolhida participa.
+- *Configurações → Colaboração*: seu nome, servidor padrão e a lista do que está compartilhado (copiar link ou parar).
+- Guia completo: [docs/COLLAB.md](https://github.com/cliqueprojeto/GCP-Calc/blob/main/docs/COLLAB.md).
+
 ## 1.11.4 — números por extenso, as quatro operações em linguagem natural e notificações com a cara do app
 
 ### Números e operações em linguagem natural

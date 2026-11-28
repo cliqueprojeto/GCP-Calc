@@ -1,0 +1,12 @@
+{
+  "name": "gcp-calc-collab-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor de sincronização opcional da colaboração do GCP-Calc (só guarda dados cifrados).",
+  "type": "module",
+  "main": "collab-relay.mjs",
+  "scripts": { "start": "node collab-relay.mjs" },
+  "dependencies": { "ws": "^8.18.0" },
+  "license": "GPL-3.0-or-later",
+  "author": "Bruno Albertini | Gestão Cultural Pro"
+}

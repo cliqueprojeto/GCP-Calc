@@ -9,6 +9,8 @@ import { autoBackupIfDue } from './cloud/cloud';
 import { useLang, translate, resolveLang } from './i18n';
 import { checkWhisperCrash } from './lib/whisper';
 import { DialogHost } from './components/Dialogs';
+import { JoinDialog } from './components/Collab';
+import { startCollab } from './collab/manager';
 import { useEvalContext } from './lib/calcContext';
 import { toast } from './store/ui';
 import { Sidebar } from './components/Sidebar';
@@ -41,6 +43,12 @@ export function App() {
       if (first) useUi.getState().go({ kind: 'note', id: first.id });
       if (s.ratesOnOpen) useRates.getState().refresh(false, s.ratesMaxAge);
       startAutoSync();
+      startCollab();
+      // link de colaboração aberto direto no navegador: #join=…
+      if (location.hash.includes('join=')) {
+        useUi.getState().set({ joinRequest: { link: location.hash, at: Date.now() } });
+        history.replaceState(null, '', location.pathname + location.search);
+      }
       setTimeout(() => autoBackupIfDue(), 20_000);
       setTimeout(() => runUpdateCheck(), 4_000);
       // lembretes: avisos na central, notificações do sistema e agendamento no Android
@@ -190,6 +198,7 @@ export function App() {
         </div>
         <Keypad />
         <DialogHost />
+        <JoinHost />
       </main>
       <Support />
       <PermissionsFirstRun />
@@ -197,5 +206,22 @@ export function App() {
       <CommandPalette />
       <Toasts />
     </div>
+  );
+}
+
+/** "Entrar com link" (pela URL, pelo menu ou pelas configurações) */
+function JoinHost() {
+  const req = useUi((s) => s.joinRequest);
+  if (!req) return null;
+  const close = () => useUi.getState().set({ joinRequest: undefined });
+  return (
+    <JoinDialog
+      key={req.at}
+      initial={req.link}
+      onClose={close}
+      onJoined={(sh) => {
+        if (sh.kind === 'note') setTimeout(() => useData.getState().notes.some((n) => n.id === sh.targetId) && useUi.getState().go({ kind: 'note', id: sh.targetId }), 2500);
+      }}
+    />
   );
 }

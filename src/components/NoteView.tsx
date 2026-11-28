@@ -34,11 +34,14 @@ import {
   Mic,
   CodeXml,
   FileSpreadsheet,
+  Radio,
+  LogIn,
 } from 'lucide-react';
 import { SaveTemplateModal } from './TemplateDialogs';
 import { OrganizeModal } from './OrganizeModal';
 import { ImportModal } from './ImportModal';
 import { VoiceFab } from './VoiceFab';
+import { LiveBadge, ShareDialog } from './Collab';
 import { CompareBlock } from './CompareBlock';
 import { CodeBlock } from './CodeBlock';
 import { AttachChooser, ReceiptViewer, ReceiptsStrip, attachFlow } from './Receipts';
@@ -173,6 +176,7 @@ export function NoteView({ note }: { note: Note }) {
   }, [ui.voiceRequest]);
   const [organizing, setOrganizing] = useState<string | null>(null);
   const [importing, setImporting] = useState<{ after?: string } | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [voice, setVoice] = useState<{ target?: string; audio?: Extract<Block, { type: 'audio' }>; blob?: Blob } | null>(null);
   /** bloco de cálculo mais próximo (o anterior; se não houver, o primeiro) */
   const nearestCalc = (id?: string) => {
@@ -454,6 +458,7 @@ export function NoteView({ note }: { note: Note }) {
         </button>
         <input className="note-title" value={note.title} placeholder={t('note.untitled')} onChange={(e) => updateNote(note.id, (n) => void (n.title = e.target.value))} />
         <div className="note-actions">
+          <LiveBadge note={note} onOpen={() => setSharing(true)} />
           <button className="icon-btn" title={note.pinned ? t('note.unpin') : t('note.pin')} onClick={() => updateNote(note.id, (n) => void (n.pinned = !n.pinned))}>
             {note.pinned ? <PinOff size={17} /> : <Pin size={17} />}
           </button>
@@ -469,6 +474,13 @@ export function NoteView({ note }: { note: Note }) {
           >
             {(close) => (
               <>
+                <MenuItem icon={<Radio size={15} />} onClick={() => (setSharing(true), close())}>
+                  {t('collab.menu')}
+                </MenuItem>
+                <MenuItem icon={<LogIn size={15} />} onClick={() => (ui.set({ joinRequest: { at: Date.now() } }), close())}>
+                  {t('collab.joinTitle')}
+                </MenuItem>
+                <div className="menu-sep" />
                 <MenuItem
                   icon={<Copy size={15} />}
                   onClick={() => {
@@ -724,6 +736,7 @@ export function NoteView({ note }: { note: Note }) {
         <InsertMenu big />
       </div>
 
+      {sharing && <ShareDialog note={note} onClose={() => setSharing(false)} />}
       {importing && (
         <ImportModal
           ctx={ctx}

@@ -131,6 +131,8 @@ export interface Settings {
   autoFormat?: boolean;
   /** sugestões de variáveis, seções e funções enquanto digita */
   autocomplete?: boolean;
+  /** colaboração: nome mostrado aos outros e servidor de sincronização padrão (opcional) */
+  collab?: { name?: string; relayUrl?: string };
   keypad: 'auto' | 'on' | 'off';
   resultColors: boolean;
   ai: { providers: AiProvider[]; active?: string; inline: boolean };
@@ -152,6 +154,28 @@ export interface Settings {
   onboarded?: boolean;
 }
 
+/** Nota ou pasta compartilhada ao vivo (colaboração em tempo real). */
+export interface Share {
+  /** id da sala (derivado da chave secreta) */
+  id: string;
+  kind: 'note' | 'folder';
+  /** id da nota ou da pasta (o mesmo em todos os aparelhos) */
+  targetId: string;
+  name: string;
+  /** chave secreta do link (cifra o que trafega e o que fica no servidor) */
+  secret: string;
+  /** p2p: direto entre aparelhos · relay: também por um servidor de sincronização */
+  mode: 'p2p' | 'relay';
+  relayUrl?: string;
+  /** quem criou o compartilhamento neste aparelho */
+  owner: boolean;
+  /** estado do documento colaborativo (Yjs), em base64 */
+  state?: string;
+  created: number;
+  updated: number;
+  deleted?: number;
+}
+
 export interface DataDoc {
   version: 1;
   notes: Note[];
@@ -163,6 +187,8 @@ export interface DataDoc {
   reminders?: Reminder[];
   /** central de notificações */
   inbox?: InboxItem[];
+  /** notas e pastas compartilhadas ao vivo */
+  shares?: Share[];
 }
 
 export type Repeat = 'none' | 'weekly' | 'monthly' | 'yearly';
